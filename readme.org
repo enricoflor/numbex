@@ -1,0 +1,205 @@
+#+title: numbex.el
+#+author: Enrico Flor
+#+startup: content
+
+~numbex~ is a minor mode for GNU Emacs that helps you manage numbered
+examples and reference to them in your buffer.  It is primarily aimed
+at linguists, whose practice very often involves having example
+sentences, formulas, or other objects given with a number that
+uniquely identifies them in the text:
+
+#+begin_example
+Consider these two examples:
+
+(1) One example.
+(2) Another example.
+
+If you look at (1)...
+#+end_example
+
+Now, this very good practice starts to get annoying when taking notes
+in plain text if nothing helps you keep the numbering consistent.  Say
+for instance that I want to switch the two examples above, or that I
+want to add another example before them.  To keep things tidy and
+unambiguous I'd have to change the number of all other examples, and
+also the number of all the references!  And if I make a mistake or I
+forget to do this change, the reference is wrong and I don't know what
+that passage is supposed to refer to.  ~numbex~ takes care of all this
+for you.
+
+~numbex~ should work in any major mode, and in particular it should
+not conflict with the default behavior of ~org-mode~.  The fundamental
+idea behind ~numbex~ is that the buffer text proper doesn't contain
+any numbering itself, but only *numbex items* (that is, labeled
+expressions with a certain form): the numbering is added to the buffer
+as text properties.  The command ~numbex-toggle-display~ switches the
+buffer back and forth from a state with and without the numbering.
+
+There is no preset default keybinding, but it is a good idea to define
+some at least for the two most common interactive commands:
+~numbex-do~ and ~numbex-toggle-display~.  The other interactive
+commands, explained below, are ~numbex-search~,
+~numbex-convert-to-latex~, ~numbex-convert-from-latex~ and
+~numbex-write-out-numbers~.
+
+** Basic usage with ~numbex-do~
+
+A ~numbex~ item is a buffer substring whose delimiters are ~{[~ and
+~]}~, and whose body consist of a *prefix* and a *label*.  The prefix
+determines the kind of item:
+
+|--------+--------------------------------------------|
+| Prefix | Type of item                               |
+|--------+--------------------------------------------|
+| ~ex:~  | Example (introduces a new label)           |
+| ~rex:~ | Reference to an example                    |
+| ~pex:~ | Reference to immediately preceding example |
+| ~nex:~ | Reference to immediately following example |
+|--------+--------------------------------------------|
+
+The *label* is the substring after the prefix in the item.  So for
+instance ~{[ex:first]}~ is an example item whose label is ~first~.
+Items can be unlabeled: ~{[ex:]}~.  There cannot be white spaces
+inside an item: ~numbex~ will remove them if you add them.  (This is
+to make sure that an item never ends up split in different lines,
+which would cause ~numbex~ not to recognize the item anymore).
+
+While you can manipulate these items yourself (either manually or
+programmatically), it is much more convenient to use the command
+~numbex-do~.  If you invoke this command while point is on a numbex
+item, it will allow you to edit the label, otherwise, it will let you
+create a new item.  The convenience of using this command is that it
+provides completion for selecting labels when you edit or create a
+reference, and warns you when you are trying to use a non-unique label
+when you edit or create a new example.  The interface of ~numbex-do~
+lets you select options from a selection in the echo area.
+
+#+CAPTION: Interface of ~numbex-do~.
+[[./screenshots/numbex-do-1.png]]
+[[./screenshots/numbex-do-select-label.png]]
+[[./screenshots/numbex-do-change-label.png]]
+[[./screenshots/numbex-do-confirm.png]]
+
+
+*** Numbering of examples
+
+Examples, whether labeled or not, are just numbered sequentially,
+starting with ~(1)~ on the very first example in the buffer.
+
+*** Numbering of references
+
+The numbering of references depends on several factors.  Labeled
+reference items (like ~{[rex:first-example]}~) inherit the same number
+as the corresponding example item (in this case,
+~{[ex:first-example]}~).  Unlabeled ones (like ~{[rex:]}~) receive the
+same number as the example item immediately preceding them.
+
+The special reference items ~pex:~ and ~nex:~ are almost never
+unlabeled.  This is because ~numbex~ automatically assigns to them the
+same label as the example that immediately precedes or follows them
+(respectively).  If the state of the buffer changes as to which
+example precedes or follows them, their label will change accordingly.
+If you edit a ~pex:~ or ~nex:~ item with ~numbex-do~, it will be
+automatically converted in a regular reference item with the new label
+you selected.  These special items can remain unlabeled only as long
+as there is no example in the buffer that precedes or follows them
+(respectively), in which case ~pex:~ will be numbered as ~(0)~, ~nex:~
+as the same number and example at the very end of the buffer would be
+assigned.
+
+Assuming that this is the whole buffer:
+
+#+begin_example
+{[ex:]} Odd example
+{[ex:second-example]} One example.
+{[ex:first-example]} Another example.
+
+If you look at {[rex:second-example]} you will see that {[pex:first-example]}...
+#+end_example
+
+this is how ~numbex~ will number the items:
+
+#+begin_example
+(1) Odd example.
+(2) One example.
+(3) Another example.
+
+If you look at (2) you will see that (3)...
+#+end_example
+
+** Other conveniences
+
+When point is on an item, the underlying label is displayed in the
+echo area.  If the item is a reference item, the echo area will also
+display the context of the corresponding example item (its line).
+This way, you will always have a clue as to what is referred to by the
+item at point:
+
+#+CAPTION: Displaying the label in the echo area.
+[[./screenshots/numbex-display-label.png]]
+
+Right after any invocation of ~numbex-do~ you will be reminded in the
+echo area of the existence of duplicate labels (non-empty labels that
+are being used by more than one example item):
+
+#+CAPTION: Duplicate found warning in the echo area.
+[[./screenshots/numbex-duplicate-found.png]]
+
+These two features work even if the buffer is currently narrowed and
+the example item you are referring to or the duplicate label are
+outside of the narrowed portion of the buffer (that is, they are
+currently inaccessible).  This way, the chances of you ending up with
+a mess once you widen the buffer again are minimized.
+
+*** Syntax highlighting
+
+By default, ~numbex~ color codes numbers corresponding to unlabeled
+items or to items with a non-unique label.  This is done with whatever
+text property the current font-lock marks comments and warnings
+(respectively).  If no font-lock is active, ~numbex~ uses gray and red
+respectively.
+
+#+begin_example
+{[ex:]} Odd example
+{[ex:second-example]} One example.
+{[ex:first-example]} Another example.
+
+If you look at {[rex:second-example]} you will see that
+{[pex:first-example]} resembles this sentence:
+
+{[ex:second-example]} An example.
+#+end_example
+
+#+CAPTION: Highlighting of problematic items.
+[[./screenshots/numbex-highlighting.png]]
+
+If you want to change this default behavior, set the variables
+~numbex-highlight-unlabeled~ and/or ~numbex-highlight-duplicates~ to
+~nil~.
+
+*** Exporting
+
+You might want to use the complex of examples and reference you
+maintained with ~numbex~ in LaTeX.  ~numbex-convert-to-latex~ replaces
+every example item with ~\label{ex:<label>}~ and every reference item
+with ~(\ref{ex:<label>})~.  To convert in the other direction, use
+~numbex-convert-from-latex~.
+
+Also, you might want to export the notes you have maintained with
+~numbex~ in another plain text file where the numbers are actual text
+content instead of text properties (for instance, you want to send a
+plain text email with numbered examples).  This is a destructive
+operation: it will necessarily remove information that cannot be
+restored (namely, the labels).  Therefore, ~numbex-write-out-numbers~
+will save the content of the buffer in a file (whose name is the name
+of the current buffer prefixed by ~nb-~), where all the numbex items
+are actually replaced by the numbers.
+
+*** Searching
+
+Finally, ~numbex-search~ is a convenient wrapper around ~occur~ that
+lets you examine the items in the buffer: use it to have, in other
+window, a grep-like overview of the lines that contain any item, or
+any example, or any reference, or any item with the same label as the
+item at point (if ~numbex-search~ is evaluated when point is on an
+item).
