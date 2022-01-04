@@ -74,6 +74,9 @@
                    "https://github.com/enricoflor/numbex")
   :group 'convenience)
 
+(defvar-local numbex--total-number-of-items 0
+  "Total number of numbex-items in the buffer.")
+
 (defvar-local numbex--hidden-labels t
   "If t, numbex items have a numerical overlay.")
 
@@ -164,37 +167,31 @@ buffer.  This reduces the risk of working on a narrowed buffer
 and ending up with many duplicate labels or mistaken references
 once the buffer is widened again."
   (let ((labels '())
-        (positions '())
-        (lines '())
+        (labels-lines '())
+        (labels-positions '())
         (number 1))
     (numbex--with-widened-indirect-buffer
      (lambda ()
        (goto-char (point-min))
        (while (re-search-forward numbex--ex-re nil t)
-         (push (buffer-substring-no-properties (match-beginning 1)
-                                               (match-end 1))
-               labels)
-         (push number positions)
-         (setq number (1+ number))
-         (push (string-trim
-                (buffer-substring-no-properties (match-end 0)
-                                                (line-end-position)))
-               lines))))
-    (setq numbex--key-number-pairs
-          (nreverse
-           (cl-mapcar (lambda (x y) (cons x y))
-                      labels
-                      (mapcar (lambda (x) (concat (car numbex-delimiters)
-                                                  (number-to-string x)
-                                                  (cdr numbex-delimiters)))
-                              positions))))
-    (setq numbex--example-lines
-          (nreverse (cl-mapcar (lambda (x y) (cons x y))
-                               labels
-                               lines)))
-    (setq numbex--duplicates
-          (numbex--get-duplicates (mapcar #'car
-                                          numbex--key-number-pairs)))))
+        (let ((lab
+                (buffer-substring-no-properties (match-beginning 1)
+                                                (match-end 1))))
+           (push lab labels)
+           (push (cons lab
+                       (concat (car numbex-delimiters)
+                               (number-to-string number)
+                               (cdr numbex-delimiters)))
+                 labels-positions)
+           (push (cons lab
+                       (buffer-substring-no-properties
+                        (match-end 0)
+                        (line-end-position)))
+                 labels-lines))
+         (setq number (1+ number)))))
+    (setq numbex--key-number-pairs (nreverse labels-positions))
+    (setq numbex--example-lines (nreverse labels-lines))
+    (setq numbex--duplicates (numbex--get-duplicates labels))))
 
 (defun numbex--remove-numbering ()
   "Remove all numbex text properties from the buffer.
@@ -306,7 +303,10 @@ Set 'numbex-hidden-labels' to t."
                              (match-end 0))
            (goto-char (match-end 0)))))
     (goto-char (point-min))
+    (setq numbex--total-number-of-items 0)
     (while (re-search-forward numbex--item-re nil t)
+      (setq numbex--total-number-of-items
+            (1+ numbex--total-number-of-items))
       (when (or (numbex--label-exists-p (match-string 1))
                 (string-blank-p (match-string 1)))
         (add-text-properties (match-beginning 0)
@@ -617,9 +617,11 @@ concerned."
                                              numbex--example-lines))))
               (message label)))
         ;; Point is not on an item, just rescan the buffer and
-        ;; renumber the items.
-        (numbex--scan-buffer)
-        (numbex--add-numbering)))))
+        ;; renumber the items.  Do it only if this wouldn't cripple
+        ;; everything.
+        (unless (> numbex--total-number-of-items 400)
+          (numbex--scan-buffer)
+          (numbex--add-numbering))))))
 
 (defun numbex--hook-functions ()
   "Initialize numbex-mode.  To be added to 'numbex-mode-hook'.
