@@ -647,7 +647,7 @@ Evaluates 'numbex--refresh' and adds the same function to
   (if numbex-mode
       (unless numbex--idle-timer
         (setq numbex--idle-timer
-              (run-with-idle-timer 0.1 t #'numbex--timed)))
+              (run-with-idle-timer 0.5 t #'numbex--timed)))
     (cancel-timer numbex--idle-timer)
     (setq numbex--idle-timer nil)))
 
