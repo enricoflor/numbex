@@ -339,13 +339,25 @@ Set 'numbex-hidden-labels' to t."
     (let* ((old-label
             (buffer-substring-no-properties (car old-label-pos)
                                             (cdr old-label-pos)))
+           (ex (search-backward "{[ex" (- (car old-label-pos) 6) t))
            (new-label
-            (read-string (format
-                          "New label [default \"%s\"]: "
-                          old-label)
-                         old-label nil
-                         old-label t)))
-      (if (and (member new-label numbex--existing-labels)
+            (if ex
+                (read-string (format
+                              "New label [default \"%s\"]: "
+                              old-label)
+                             old-label nil
+                             old-label t)
+              ;; If the item is a reference, provide completion with
+              ;; the existing labels.
+              (car (list
+                 (completing-read
+                  (format "Label [default \"%s\"]: " old-label)
+                  numbex--existing-labels
+                  nil nil
+                  old-label nil
+                  old-label t))))))
+      (if (and ex
+               (member new-label numbex--existing-labels)
                (not (equal new-label old-label)))
           (if (not (yes-or-no-p (concat new-label
                                         " is already a label, are you sure?")))
