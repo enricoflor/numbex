@@ -146,14 +146,6 @@ on a numbex item."
                          (match-end 1))))
           nil)))))
 
-(defun numbex--get-duplicates (list)
-  "Return a list of strings that occur more than once in LIST."
-  (let ((no-dupl
-         (cl-remove-duplicates list
-                               :test #'equal)))
-    (cl-remove-duplicates (cl-set-difference list no-dupl)
-                          :test #'equal)))
-
 (defmacro numbex--with-widened-indirect-buffer (&rest body)
   "Execute BODY in a widened indirect buffer of the current one.
 Kill the indirect buffer when done with BODY."
@@ -174,6 +166,7 @@ and ending up with many duplicate labels or mistaken references
 once the buffer is widened again."
   (let ((labels '())
         (labels-lines '())
+        (dup '())
         (labels-positions '())
         (number 1))
     (numbex--with-widened-indirect-buffer
@@ -193,11 +186,14 @@ once the buffer is widened again."
                        (buffer-substring-no-properties
                         (match-end 0)
                         (line-end-position)))
-                 labels-lines))
+                 labels-lines)
+           (unless (and (string-blank-p lab)
+                        (member lab dup))
+             (push lab dup)))
          (setq number (1+ number)))))
     (setq numbex--key-number-pairs (nreverse labels-positions))
     (setq numbex--example-lines (nreverse labels-lines))
-    (setq numbex--duplicates (numbex--get-duplicates labels))))
+    (setq numbex--duplicates dup)))
 
 (defun numbex--remove-numbering ()
   "Remove all numbex text properties from the buffer.
@@ -571,6 +567,7 @@ Set 'numbex-hidden-labels' to t."
                        (mapconcat #'identity
                                   numbex--duplicates
                                   "  "))))))
+
 
 (defun numbex-refresh (&optional no-echo)
   "Scan the buffer and assign numbers.
