@@ -77,6 +77,12 @@
 (defvar-local numbex--total-number-of-items 0
   "Total number of numbex-items in the buffer.")
 
+(defvar-local numbex--automatic-refresh t
+  "If t, evaluate 'numbex-refresh' on idle timer and with other commands.
+Specifically, with 'numbex-toggle-display' and 'numbex-do'.  Even
+if nil, 'numbex-refresh will be added to 'auto-save-hook' and
+'before-save-hook'.")
+
 (defvar-local numbex--hidden-labels t
   "If t, numbex items have a numerical overlay.")
 
@@ -318,7 +324,8 @@ Set 'numbex-hidden-labels' to t."
 (defun numbex-toggle-display ()
   "Remove numbers if they are present, add them otherwise."
   (interactive)
-  (numbex--refresh)
+  (when numbex--automatic-refresh
+    (numbex-refresh))
   (if numbex--hidden-labels
       (numbex--remove-numbering)
     (numbex--add-numbering)))
@@ -421,7 +428,8 @@ Set 'numbex-hidden-labels' to t."
     (if (numbex--item-at-point)
         (numbex--edit (numbex--item-at-point))
       (numbex--new))
-    (numbex--refresh t)
+    (when numbex--automatic-refresh
+      (numbex-refresh t))
     (if hidden
         (numbex--add-numbering)
       (numbex--remove-numbering))))
@@ -466,7 +474,7 @@ Set 'numbex-hidden-labels' to t."
   "Grep the buffer for items."
   (interactive)
   (numbex--remove-numbering)
-  (numbex--refresh t)
+  (numbex-refresh t)
   (if (numbex--item-at-point)
       (numbex--search-at-point)
     (numbex--search-not-at-point))
@@ -513,7 +521,8 @@ Set 'numbex-hidden-labels' to t."
         (delete-region (match-beginning 0)
                        (match-end 0))
         (insert (concat "{[rex:" label "]}")))))
-  (numbex--refresh))
+  (when numbex--automatic-refresh
+    (numbex-refresh)))
 
 (defun numbex--get-number (p)
   "Return the number assigned to item at position P."
@@ -563,11 +572,12 @@ Set 'numbex-hidden-labels' to t."
                                   numbex--duplicates
                                   "  "))))))
 
-(defun numbex--refresh (&optional no-echo)
+(defun numbex-refresh (&optional no-echo)
   "Scan the buffer and assign numbers.
 If NO-ECHO is non-nil, do not warn about duplicates.  This is to
 be added to 'numbex-mode-hook', 'auto-save-hook' and
 'before-save-hook'."
+  (interactive)
   (let ((hidden numbex--hidden-labels))
     ;; First of all, remove whitespace from items.
     (save-excursion
@@ -619,20 +629,38 @@ concerned."
         ;; Point is not on an item, just rescan the buffer and
         ;; renumber the items.  Do it only if this wouldn't cripple
         ;; everything.
-        (unless (> numbex--total-number-of-items 400)
+        (unless (or (> numbex--total-number-of-items 400)
+                    (not numbex--automatic-refresh))
           (numbex--scan-buffer)
           (numbex--add-numbering))))))
 
+(defun numbex--count-and-ask ()
+  (save-excursion
+    (goto-char (point-min))
+    (setq numbex--total-number-of-items 0)
+    (while (re-search-forward numbex--item-re nil t)
+      (setq numbex--total-number-of-items
+            (1+ numbex--total-number-of-items)))
+    (when (and (> numbex--total-number-of-items 400)
+               numbex--automatic-refresh)
+      (let* ((question
+              (format "There are %s items in the buffer.\nDo you want to disable automatic refresh (you can refresh yourself with 'numbex-refresh')?"
+                      numbex--total-number-of-items))
+             (choice (yes-or-no-p question)))
+        (when choice
+            (setq numbex--automatic-refresh nil))))))
+
 (defun numbex--hook-functions ()
   "Initialize numbex-mode.  To be added to 'numbex-mode-hook'.
-Evaluates 'numbex--refresh' and adds the same function to
+Evaluates 'numbex-refresh' and adds the same function to
 'auto-save-hook' and 'before-save-hook'."
-  (numbex--refresh)
+  (numbex--count-and-ask)
+  (numbex-refresh)
   (add-hook 'auto-save-hook
-            #'numbex--refresh
+            #'numbex-refresh
             nil t)
   (add-hook 'before-save-hook
-            #'numbex--refresh
+            #'numbex-refresh
             nil t))
 
 (add-hook 'numbex-mode-hook #'numbex--hook-functions)
