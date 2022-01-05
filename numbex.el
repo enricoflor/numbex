@@ -63,9 +63,9 @@
 
 ;;; Code:
 
-(require 'cl-lib)
-(require 'cl-seq)
 (require 'subr-x)
+
+(defvar numbex-mode)
 
 (defgroup numbex nil
   "Automatically number examples and references to them."
@@ -94,6 +94,9 @@ if nil, 'numbex-refresh will be added to 'auto-save-hook' and
 
 (defvar-local numbex--duplicates nil
   "A list of non-empty labels that are not unique in the buffer.")
+
+(defvar-local numbex--existing-labels nil
+  "A list of non-empty labels that are used in the buffer.")
 
 (defcustom numbex-delimiters '("(" . ")")
   "Opening and closing characters used around numbers.
@@ -166,6 +169,7 @@ and ending up with many duplicate labels or mistaken references
 once the buffer is widened again."
   (let ((labels '())
         (labels-lines '())
+        (labels-non-empty '())
         (dup '())
         (labels-positions '())
         (number 1))
@@ -176,24 +180,27 @@ once the buffer is widened again."
         (let ((lab
                 (buffer-substring-no-properties (match-beginning 1)
                                                 (match-end 1))))
-           (push lab labels)
-           (push (cons lab
-                       (concat (car numbex-delimiters)
-                               (number-to-string number)
-                               (cdr numbex-delimiters)))
-                 labels-positions)
-           (push (cons lab
-                       (buffer-substring-no-properties
-                        (match-end 0)
-                        (line-end-position)))
-                 labels-lines)
-           (unless (and (string-blank-p lab)
-                        (member lab dup))
-             (push lab dup)))
-         (setq number (1+ number)))))
+          (unless (string-blank-p lab)
+            (push lab labels-non-empty)
+            (when (and (member lab labels)
+                       (not (member lab dup)))
+              (push lab dup)))
+          (push lab labels)
+          (push (cons lab
+                      (concat (car numbex-delimiters)
+                              (number-to-string number)
+                              (cdr numbex-delimiters)))
+                labels-positions)
+          (push (cons lab
+                      (buffer-substring-no-properties
+                       (match-end 0)
+                       (line-end-position)))
+                labels-lines))
+        (setq number (1+ number)))))
     (setq numbex--label-number-pairs (nreverse labels-positions))
     (setq numbex--example-lines (nreverse labels-lines))
-    (setq numbex--duplicates dup)))
+    (setq numbex--duplicates dup)
+    (setq numbex--existing-labels labels-non-empty)))
 
 (defun numbex--remove-numbering ()
   "Remove all numbex text properties from the buffer.
@@ -274,7 +281,7 @@ Set 'numbex-hidden-labels' to t."
                                   (cdr (assoc label
                                               numbex--label-number-pairs))))
               ((string-prefix-p "{[r" item)
-               (when (or (numbex--label-exists-p label)
+               (when (or (member label numbex--existing-labels)
                          (string-blank-p label))
                  (let ((number
                         (if (string-blank-p label)
@@ -309,7 +316,7 @@ Set 'numbex-hidden-labels' to t."
     (while (re-search-forward numbex--item-re nil t)
       (setq numbex--total-number-of-items
             (1+ numbex--total-number-of-items))
-      (when (or (numbex--label-exists-p (match-string 1))
+      (when (or (member (match-string 1) numbex--existing-labels)
                 (string-blank-p (match-string 1)))
         (add-text-properties (match-beginning 0)
                              (match-end 0)
@@ -326,13 +333,6 @@ Set 'numbex-hidden-labels' to t."
       (numbex--remove-numbering)
     (numbex--add-numbering)))
 
-(defun numbex--label-exists-p (s)
-  "Return t if S is already being used as a label in the buffer."
-  (member s
-          (cl-remove-if #'string-blank-p
-                        (mapcar #'car
-                                numbex--label-number-pairs))))
-
 (defun numbex--edit (old-label-pos)
   "Edit label starting at OLD-LABEL-POS.  Insert the new label."
   (save-excursion
@@ -345,7 +345,7 @@ Set 'numbex-hidden-labels' to t."
                           old-label)
                          old-label nil
                          old-label t)))
-      (if (and (numbex--label-exists-p new-label)
+      (if (and (member new-label numbex--existing-labels)
                (not (equal new-label old-label)))
           (if (not (yes-or-no-p (concat new-label
                                         " is already a label, are you sure?")))
@@ -369,12 +369,8 @@ Set 'numbex-hidden-labels' to t."
   (let ((label
          (read-string "Label: "
                       nil nil
-                      nil t))
-        (existing
-         (cl-remove-if #'string-blank-p
-                       (mapcar #'car
-                               numbex--label-number-pairs))))
-    (if (member label existing)
+                      nil t)))
+    (if (member label numbex--existing-labels)
         (if (yes-or-no-p (format
                           "\"%s\" is already a label, are you sure?"
                           label))
@@ -389,9 +385,7 @@ Set 'numbex-hidden-labels' to t."
            (car (list
                  (completing-read
                   "Label [default empty]: "
-                  (cl-remove-if #'string-blank-p
-                                (mapcar #'car
-                                        numbex--label-number-pairs))
+                  numbex--existing-labels
                   nil nil
                   nil nil
                   "" t)))
@@ -593,7 +587,7 @@ be added to 'numbex-mode-hook', 'auto-save-hook' and
       (numbex--echo-duplicates))))
 
 (defun numbex--timed ()
-  "Housekeeping function to be evaluated on numbex--idle-timer.
+  "Housekeeping function to be evaluated on 'numbex--idle-timer'.
 If not in 'numbex-mode' or 'numbex--hidden-labels' is nil, do
 nothing.  Otherwise, if point is on an item, display its label
 and, if appropriate, the context of the referenced example in the
@@ -632,6 +626,7 @@ concerned."
           (numbex--add-numbering))))))
 
 (defun numbex--count-and-ask ()
+  "With more than 400 items, ask whether to automatically refresh."
   (save-excursion
     (goto-char (point-min))
     (setq numbex--total-number-of-items 0)
@@ -648,7 +643,7 @@ concerned."
             (setq numbex--automatic-refresh nil))))))
 
 (defun numbex--hook-functions ()
-  "Initialize numbex-mode.  To be added to 'numbex-mode-hook'.
+  "Initialize 'numbex-mode'.  To be added to 'numbex-mode-hook'.
 Evaluates 'numbex-refresh' and adds the same function to
 'auto-save-hook' and 'before-save-hook'."
   (numbex--count-and-ask)
