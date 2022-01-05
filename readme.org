@@ -18,14 +18,13 @@ If you look at (1)...
 #+end_example
 
 Now, this very good practice starts to get annoying when taking notes
-in plain text if nothing helps you keep the numbering consistent.  Say
-for instance that I want to switch the two examples above, or that I
-want to add another example before them.  To keep things tidy and
-unambiguous I'd have to change the number of all other examples, and
-also the number of all the references!  And if I make a mistake or I
-forget to do this change, the reference is wrong and I don't know what
-that passage is supposed to refer to.  ~numbex~ takes care of all this
-for you.
+in plain text.  Say for instance that you want to switch the two
+examples above, or that you want to add another example before them.
+To keep things tidy and unambiguous you'd have to change the number of
+every other example, and also the number of every reference!  If you
+make a mistake or you forget anything, you will end up with a mess and
+there is no way to know, from the numbers alone what refers to what.
+~numbex-mode~ takes care of all this for you.
 
 ~numbex~ should work in any major mode, and in particular it should
 not conflict with the default behavior of ~org-mode~.  The fundamental
@@ -35,16 +34,16 @@ expressions with a certain form): the numbering is added to the buffer
 as text properties.  The command ~numbex-toggle-display~ switches the
 buffer back and forth from a state with and without the numbering.
 
-There is no preset default keybinding, but it is a good idea to define
-some at least for the two most common interactive commands:
-~numbex-do~ and ~numbex-toggle-display~.  The other interactive
-commands, explained below, are ~numbex-search~,
+There are no preset default keybindings, but it is a good idea to
+define some for the two most common interactive commands: ~numbex-do~
+and ~numbex-toggle-display~.  The other interactive commands,
+explained below, are ~numbex-search~, ~numbe-refresh~,
 ~numbex-convert-to-latex~, ~numbex-convert-from-latex~ and
 ~numbex-write-out-numbers~.
 
 ** Basic usage with ~numbex-do~
 
-A ~numbex~ item is a buffer substring whose delimiters are ~{[~ and
+A "numbex item" is a buffer substring whose delimiters are ~{[~ and
 ~]}~, and whose body consist of a *prefix* and a *label*.  The prefix
 determines the kind of item:
 
@@ -59,10 +58,11 @@ determines the kind of item:
 
 The *label* is the substring after the prefix in the item.  So for
 instance ~{[ex:first]}~ is an example item whose label is ~first~.
-Items can be unlabeled: ~{[ex:]}~.  There cannot be white spaces
-inside an item: ~numbex~ will remove them if you add them.  (This is
-to make sure that an item never ends up split in different lines,
-which would cause ~numbex~ not to recognize the item anymore).
+Items can be unlabeled: ~{[ex:]}~.  There cannot be whitespace
+characters inside an item: if you add any, they will be automatically
+removed.  (This is to make sure that an item never ends up broken in
+different lines, which would cause numbex not to recognize the item
+anymore.)
 
 While you can manipulate these items yourself (either manually or
 programmatically), it is much more convenient to use the command
@@ -72,7 +72,7 @@ create a new item.  The convenience of using this command is that it
 provides completion for selecting labels when you edit or create a
 reference, and warns you when you are trying to use a non-unique label
 when you edit or create a new example.  The interface of ~numbex-do~
-lets you select options from a selection in the echo area.
+lets you choose an option from a selection in the echo area.
 
 #+CAPTION: Interface of ~numbex-do~.
 [[./screenshots/numbex-do-1.png]]
@@ -95,7 +95,7 @@ as the corresponding example item (in this case,
 same number as the example item immediately preceding them.
 
 The special reference items ~pex:~ and ~nex:~ are almost never
-unlabeled.  This is because ~numbex~ automatically assigns to them the
+unlabeled.  This is because numbex automatically assigns to them the
 same label as the example that immediately precedes or follows them
 (respectively).  If the state of the buffer changes as to which
 example precedes or follows them, their label will change accordingly.
@@ -153,9 +153,9 @@ a mess once you widen the buffer again are minimized.
 
 *** Syntax highlighting
 
-By default, ~numbex~ color codes numbers corresponding to unlabeled
+By default, numbex color-codes numbers corresponding to unlabeled
 items or to items with a non-unique label.  This is done with whatever
-text property the current font-lock marks comments and warnings
+text property the current font-lock uses to mark comments and warnings
 (respectively).  If no font-lock is active, ~numbex~ uses gray and red
 respectively.
 
@@ -179,14 +179,14 @@ If you want to change this default behavior, set the variables
 
 *** Exporting
 
-You might want to use the complex of examples and reference you
-maintained with ~numbex~ in LaTeX.  ~numbex-convert-to-latex~ replaces
+You might want to use the complex of examples and references you
+maintained with numbex in LaTeX.  ~numbex-convert-to-latex~ replaces
 every example item with ~\label{ex:<label>}~ and every reference item
 with ~(\ref{ex:<label>})~.  To convert in the other direction, use
 ~numbex-convert-from-latex~.
 
 Also, you might want to export the notes you have maintained with
-~numbex~ in another plain text file where the numbers are actual text
+numbex in another plain text file where the numbers are actual text
 content instead of text properties (for instance, you want to send a
 plain text email with numbered examples).  This is a destructive
 operation: it will necessarily remove information that cannot be
@@ -203,3 +203,35 @@ window, a grep-like overview of the lines that contain any item, or
 any example, or any reference, or any item with the same label as the
 item at point (if ~numbex-search~ is evaluated when point is on an
 item).
+
+** Dealing with large files
+
+The numbering of items and the collection of information about labels
+(duplicates etc.) is performed by ~numbex-refresh~.  By default, this
+operation is performed automatically if the current buffer is in
+~numbex-mode~ at these moments:
+
++ when ~numbex-mode~ is activated
++ every time Emacs is idle for 0.3 seconds (enough time not to be in
+  the way of your typing)
++ when the buffer is saved or auto-saved
++ right after any time one of these functions is evaluated:
+  + ~numbex-do~
+  + ~numbex-toggle-display~
+
+If you have less than a thousand numbex items in your buffer, you
+shouldn't notice any significant lag.  If you have 500,
+~numbex-refresh~ should take approximately 0.05 seconds, which makes
+the process just about imperceptible.
+
+However, if when you activate ~numbex-mode~ more than 1000 numbex
+items are found, you will be asked whether you want to disable
+automatic refresh.  If you disable it, ~numbex-refresh~ will only be
+evaluated when you save the buffer (or when it is auto-saved) and of
+course when you interactively call it as a command.  Regardless of
+what you answer to that question, any time that there are more than
+1000 numbex items in the buffer, ~numbex-refresh~ won't be evaluated
+on the idle-timer every 0.3 seconds.  It is unlikely, however, that
+you will ever have more than 1000 between examples and references in a
+single buffer.  If you plan to keep notes with more than /ten
+thousand/ items... it's better if you don't use ~numbex-mode~ at all.
