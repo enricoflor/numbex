@@ -620,20 +620,20 @@ concerned."
         ;; Point is not on an item, just rescan the buffer and
         ;; renumber the items.  Do it only if this wouldn't cripple
         ;; everything.
-        (unless (or (> numbex--total-number-of-items 400)
+        (unless (or (> numbex--total-number-of-items 1000)
                     (not numbex--automatic-refresh))
           (numbex--scan-buffer)
           (numbex--add-numbering))))))
 
 (defun numbex--count-and-ask ()
-  "With more than 400 items, ask whether to automatically refresh."
+  "With more than 1000 items, ask whether to automatically refresh."
   (save-excursion
     (goto-char (point-min))
     (setq numbex--total-number-of-items 0)
     (while (re-search-forward numbex--item-re nil t)
       (setq numbex--total-number-of-items
             (1+ numbex--total-number-of-items)))
-    (when (and (> numbex--total-number-of-items 400)
+    (when (and (> numbex--total-number-of-items 1000)
                numbex--automatic-refresh)
       (let* ((question
               (format "There are %s items in the buffer.\nDo you want to disable automatic refresh (you can refresh yourself with 'numbex-refresh')?"
@@ -667,7 +667,7 @@ Evaluates 'numbex-refresh' and adds the same function to
   (if numbex-mode
       (unless numbex--idle-timer
         (setq numbex--idle-timer
-              (run-with-idle-timer 0.5 t #'numbex--timed)))
+              (run-with-idle-timer 0.3 t #'numbex--timed)))
     (cancel-timer numbex--idle-timer)
     (setq numbex--idle-timer nil)))
 
