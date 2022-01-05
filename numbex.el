@@ -86,7 +86,7 @@ if nil, 'numbex-refresh will be added to 'auto-save-hook' and
 (defvar-local numbex--hidden-labels t
   "If t, numbex items have a numerical overlay.")
 
-(defvar-local numbex--key-number-pairs nil
+(defvar-local numbex--label-number-pairs nil
   "Alist mapping labels of examples to the number assigned.")
 
 (defvar-local numbex--example-lines nil
@@ -191,7 +191,7 @@ once the buffer is widened again."
                         (member lab dup))
              (push lab dup)))
          (setq number (1+ number)))))
-    (setq numbex--key-number-pairs (nreverse labels-positions))
+    (setq numbex--label-number-pairs (nreverse labels-positions))
     (setq numbex--example-lines (nreverse labels-lines))
     (setq numbex--duplicates dup)))
 
@@ -272,7 +272,7 @@ Set 'numbex-hidden-labels' to t."
                (put-text-property b e
                                   'display
                                   (cdr (assoc label
-                                              numbex--key-number-pairs))))
+                                              numbex--label-number-pairs))))
               ((string-prefix-p "{[r" item)
                (when (or (numbex--label-exists-p label)
                          (string-blank-p label))
@@ -280,7 +280,7 @@ Set 'numbex-hidden-labels' to t."
                         (if (string-blank-p label)
                             (numbex--number-closest-example)
                           (cdr (assoc label
-                                      numbex--key-number-pairs)))))
+                                      numbex--label-number-pairs)))))
                    (put-text-property b e
                                       'display number)))))
         (numbex--highlight label b e)))
@@ -331,7 +331,7 @@ Set 'numbex-hidden-labels' to t."
   (member s
           (cl-remove-if #'string-blank-p
                         (mapcar #'car
-                                numbex--key-number-pairs))))
+                                numbex--label-number-pairs))))
 
 (defun numbex--edit (old-label-pos)
   "Edit label starting at OLD-LABEL-POS.  Insert the new label."
@@ -373,7 +373,7 @@ Set 'numbex-hidden-labels' to t."
         (existing
          (cl-remove-if #'string-blank-p
                        (mapcar #'car
-                               numbex--key-number-pairs))))
+                               numbex--label-number-pairs))))
     (if (member label existing)
         (if (yes-or-no-p (format
                           "\"%s\" is already a label, are you sure?"
@@ -391,7 +391,7 @@ Set 'numbex-hidden-labels' to t."
                   "Label [default empty]: "
                   (cl-remove-if #'string-blank-p
                                 (mapcar #'car
-                                        numbex--key-number-pairs))
+                                        numbex--label-number-pairs))
                   nil nil
                   nil nil
                   "" t)))
