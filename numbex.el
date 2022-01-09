@@ -107,9 +107,8 @@ Set two empty strings if you just want the number."
 (defcustom numbex-highlight-unlabeled t
   "If t, items that are missing a label are highlighted.
 Blank strings (containing only white space) count as no label.
-If 'font-lock-mode' is enabled, unlabeled items have the appearance
-specified by 'font-lock-comment-face', otherwise, they are just
-gray."
+Unlabeled items have the appearance specified by
+'font-lock-comment-face'."
   :type 'boolean
   :group 'numbex)
 
@@ -117,9 +116,8 @@ gray."
   "If t, items that have an ambiguous label are highlighted.
 A label is ambiguous if it not a blank string (it doesn't just
 contain white space) and is used as a label of more than one
-example item.  If 'font-lock-mode' is enabled, unlabeled items
-have the appearance specified by 'font-lock-warning-face',
-otherwise, they are just red."
+example item.  Items with non-unique labels have the appearance
+specified by 'font-lock-warning-face'."
   :type 'boolean
   :group 'numbex)
 
@@ -211,6 +209,8 @@ Set 'numbex--hidden-labels' to nil."
       (set-text-properties (match-beginning 0)
                            (match-end 0)
                            nil)))
+  (numbex--toggle-font-lock-keyword)
+  (numbex--highlight)
   (setq numbex--hidden-labels nil))
 
 (defun numbex--number-closest-example (&optional next)
@@ -243,33 +243,41 @@ non-nil, check the first example after point."
                 number)
         (cons "" number)))))
 
-(defun numbex--highlight (label b e)
-  "Highlight items without labels or with non-unique ones.
-LABEL is the label of the item, B and E the position of its first
-and last character in the buffer."
-  (when (and numbex-highlight-duplicates
-             (member label numbex--duplicates))
-    (if font-lock-mode
-        (add-text-properties b e
-                             '(font-lock-face 'font-lock-warning-face))
-      (add-text-properties b e
-                           '(face (:foreground "red"))))
-    (put-text-property b e 'rear-nonsticky t))
-  (when (and numbex-highlight-unlabeled
-             (string-blank-p label))
-    (if font-lock-mode
-        (add-text-properties b e
-                             '(font-lock-face 'font-lock-comment-face))
-      (add-text-properties b e
-                           '(face (:foreground "gray"))))
-    (put-text-property b e 'rear-nonsticky t)))
+(defun numbex--highlight ()
+  "Highlight items without labels or with non-unique ones."
+  (when (or numbex-highlight-duplicates
+            numbex-highlight-unlabeled)
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward numbex--r-ex-re nil t)
+        (let ((b (match-beginning 0))
+              (e (match-end 0))
+              (item (match-string-no-properties 0))
+              (lab (match-string-no-properties 1)))
+          (cond ((and (string-prefix-p "{[ex:" item)
+                      (member lab numbex--duplicates)
+                      numbex-highlight-duplicates)
+                 (add-text-properties
+                  b e
+                  '(font-lock-face font-lock-warning-face))
+                 (put-text-property b e 'rear-nonsticky t))
+                ((and numbex-highlight-unlabeled
+                      (string-blank-p lab))
+                 (add-text-properties
+                  b e
+                  '(font-lock-face font-lock-comment-face))
+                 (put-text-property b e 'rear-nonsticky t))
+                (t nil)))))))
 
 (defun numbex--add-numbering ()
   "Number items in the buffer as text properties.
 Set 'numbex-hidden-labels' to t."
+  (setq numbex--total-number-of-items 0)
   (save-excursion
     (goto-char (point-min))
     (while (re-search-forward numbex--r-ex-re nil t)
+      (setq numbex--total-number-of-items
+            (1+ numbex--total-number-of-items))
       (let ((label (match-string 1))
             (item (match-string 0))
             (b (match-beginning 0))
@@ -281,18 +289,20 @@ Set 'numbex-hidden-labels' to t."
                                   (cdr (assoc label
                                               numbex--label-number-pairs))))
               ((string-prefix-p "{[r" item)
-               (when (or (member label numbex--existing-labels)
-                         (string-blank-p label))
-                 (let ((number
-                        (if (string-blank-p label)
-                            (numbex--number-closest-example)
-                          (cdr (assoc label
-                                      numbex--label-number-pairs)))))
+               (let* ((number
+                       (if (string-blank-p label)
+                           (numbex--number-closest-example)
+                         (cdr (assoc label
+                                     numbex--label-number-pairs)))))
+                 (if number
+                     (put-text-property b e
+                                        'display number)
                    (put-text-property b e
-                                      'display number)))))
-        (numbex--highlight label b e)))
+                                      'display "(--)")))))))
     (goto-char (point-min))
     (while (re-search-forward numbex--pnex-re nil t)
+      (setq numbex--total-number-of-items
+            (1+ numbex--total-number-of-items))
       (let* ((b (match-beginning 0))
              (old-item (match-string 0))
              (next (string-prefix-p "{[n" old-item))
@@ -307,20 +317,8 @@ Set 'numbex-hidden-labels' to t."
           (put-text-property (match-beginning 0)
                              (match-end 0)
                              'display new-number)
-           (numbex--highlight new-label
-                             (match-beginning 0)
-                             (match-end 0))
-           (goto-char (match-end 0)))))
-    (goto-char (point-min))
-    (setq numbex--total-number-of-items 0)
-    (while (re-search-forward numbex--item-re nil t)
-      (setq numbex--total-number-of-items
-            (1+ numbex--total-number-of-items))
-      (when (or (member (match-string 1) numbex--existing-labels)
-                (string-blank-p (match-string 1)))
-        (add-text-properties (match-beginning 0)
-                             (match-end 0)
-                             '(invisible t))))
+          (goto-char (match-end 0)))))
+    (numbex--toggle-font-lock-keyword t)
     (setq numbex--hidden-labels t)))
 
 ;;;###autoload
@@ -339,7 +337,9 @@ Set 'numbex-hidden-labels' to t."
     (let* ((old-label
             (buffer-substring-no-properties (car old-label-pos)
                                             (cdr old-label-pos)))
-           (ex (search-backward "{[ex" (- (car old-label-pos) 6) t))
+           (ex (save-excursion
+                 (goto-char (car old-label-pos))
+                 (search-backward "{[ex" (- (car old-label-pos) 6) t)))
            (new-label
             (if ex
                 (read-string (format
@@ -355,9 +355,10 @@ Set 'numbex-hidden-labels' to t."
                   numbex--existing-labels
                   nil nil
                   old-label nil
-                  old-label t))))))
+                  old-label t)))))
+           (novel (not (member new-label numbex--existing-labels))))
       (if (and ex
-               (member new-label numbex--existing-labels)
+               (not novel)
                (not (equal new-label old-label)))
           (if (not (yes-or-no-p (concat new-label
                                         " is already a label, are you sure?")))
@@ -370,6 +371,17 @@ Set 'numbex-hidden-labels' to t."
         (delete-region (car old-label-pos)
                        (cdr old-label-pos))
         (insert new-label))
+      (when (and ex novel)
+        (let ((rename (yes-or-no-p
+                       "Rename all corresponding references?"))
+              (target (concat "{[rex:" old-label "]}"))
+              (rep (concat "{[rex:" new-label "]}")))
+          (when rename
+            (goto-char (point-min))
+            (while (search-forward target nil t)
+              (delete-region (match-beginning 0)
+                             (match-end 0))
+              (insert rep)))))
       ;; If item at point is nex: or pex:, make it into a rex:,
       ;; otherwise the new label will be wiped out automatically.  It
       ;; does not make sense to edit pex: and nex: items manually.
@@ -439,15 +451,29 @@ Set 'numbex-hidden-labels' to t."
 (defun numbex--search-not-at-point ()
   "Let user choose a regexp and grep for it."
   (let ((choice (read-multiple-choice "Look for:"
-                                      '((?a "all items")
+                                      '((?a "all")
                                         (?e "examples")
-                                        (?r "references")))))
-    (cond ((equal choice '(?a "all items"))
+                                        (?r "references")
+                                        (?d "duplicates")
+                                        (?u "unlabeled")))))
+    (cond ((equal choice '(?a "all"))
            (occur numbex--item-re))
           ((equal choice '(?e "examples"))
            (occur numbex--ex-re))
           ((equal choice '(?r "references"))
-           (occur numbex--pnrex-re)))))
+           (occur numbex--pnrex-re))
+          ((equal choice '(?d "duplicates"))
+           (occur (regexp-opt
+                   (nconc (mapcar (lambda (x) (concat "{[ex:"
+                                                      x
+                                                      "]}"))
+                                  numbex--duplicates)
+                          (mapcar (lambda (x) (concat "{[rex:"
+                                                      x
+                                                      "]}"))
+                                  numbex--duplicates)))))
+          ((equal choice '(?u "unlabeled"))
+           (occur "{\\[[pnr]?ex:\s*\\]}")))))
 
 (defun numbex--search-at-point ()
   "Let user choose a regexp and grep for it."
@@ -458,18 +484,32 @@ Set 'numbex-hidden-labels' to t."
                   numbex--item-re
                 (concat "{\\[[pnr]?ex:" label "\\]}")))
          (choice (read-multiple-choice "Look for:"
-                                       '((?a "all items")
+                                       '((?a "all")
                                          (?e "examples")
                                          (?r "references")
-                                         (?l "label at point")))))
-    (cond ((equal choice '(?a "all items"))
+                                         (?l "label at point")
+                                         (?d "duplicates")
+                                         (?u "unlabeled")))))
+    (cond ((equal choice '(?a "all"))
            (occur numbex--item-re))
           ((equal choice '(?e "examples"))
            (occur numbex--ex-re))
           ((equal choice '(?r "references"))
            (occur numbex--pnrex-re))
           ((equal choice '(?l "label at point"))
-           (occur reg)))))
+           (occur reg))
+          ((equal choice '(?d "duplicates"))
+           (occur (regexp-opt
+                   (nconc (mapcar (lambda (x) (concat "{[ex:"
+                                                      x
+                                                      "]}"))
+                                  numbex--duplicates)
+                          (mapcar (lambda (x) (concat "{[rex:"
+                                                      x
+                                                      "]}"))
+                                  numbex--duplicates)))))
+          ((equal choice '(?u "unlabeled"))
+           (occur "{\\[[pnr]?ex:\s*\\]}")))))
 
 ;;;###autoload
 (defun numbex-search ()
@@ -632,6 +672,7 @@ concerned."
         ;; Point is not on an item, just rescan the buffer and
         ;; renumber the items.  Do it only if this wouldn't cripple
         ;; everything.
+        (numbex--highlight)
         (unless (or (> numbex--total-number-of-items 1000)
                     (not numbex--automatic-refresh))
           (numbex--scan-buffer)
@@ -669,6 +710,23 @@ Evaluates 'numbex-refresh' and adds the same function to
 
 (add-hook 'numbex-mode-hook #'numbex--hook-functions)
 
+(defun numbex--toggle-font-lock-keyword (&optional add)
+  "Remove or add font-lock-keyword making numbex items invisible.
+If the value of ADD is t, add the keyword and set
+'numbex--hidden-labels' to t.  Otherwise, remove the keyword and
+set the same variable to nil.  Finally, evaluate
+'font-lock-update' for the changes to take effect."
+  (if add
+      (font-lock-add-keywords
+       nil
+       '(("{\\[[pnr]?ex:\\([^\]]*\\)\\]}"
+          0 '(face nil invisible t) append)))
+    (font-lock-remove-keywords
+     nil
+     '(("{\\[[pnr]?ex:\\([^\]]*\\)\\]}"
+        0 '(face nil invisible t) append))))
+  (font-lock-update))
+
 ;;;###autoload
 (define-minor-mode numbex-mode
   "Automatically number examples and references to them."
@@ -677,11 +735,27 @@ Evaluates 'numbex-refresh' and adds the same function to
   :lighter " nbex"
   :group 'convenience
   (if numbex-mode
-      (unless numbex--idle-timer
-        (setq numbex--idle-timer
-              (run-with-idle-timer 0.3 t #'numbex--timed)))
+      ;; activating numbex-mode
+      (progn
+        (unless numbex--idle-timer
+          (setq numbex--idle-timer
+                (run-with-idle-timer 0.3 t #'numbex--timed)))
+        (unless font-lock-mode
+          (font-lock-mode 1))
+        (font-lock-add-keywords
+         nil
+         '(("{\\[[pnr]?ex:\\([^\]]*\\)\\]}"
+            0 '(face nil invisible t) append)))
+        (font-lock-update))
+    ;; leaving numbex-mode
     (cancel-timer numbex--idle-timer)
-    (setq numbex--idle-timer nil)))
+    (setq numbex--idle-timer nil)
+    (numbex--remove-numbering)
+    (font-lock-remove-keywords
+         nil
+         '(("{\\[[pnr]?ex:\\([^\]]*\\)\\]}"
+            0 '(face nil invisible t) append)))
+    (font-lock-update)))
 
 (provide 'numbex)
 
