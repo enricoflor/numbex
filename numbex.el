@@ -123,19 +123,28 @@ specified by 'font-lock-warning-face'."
 
 (defvar numbex--idle-timer nil)
 
-(defvar numbex--item-re "{\\[[pnr]?ex:\\([^\]]*\\)\\]}")
-(defvar numbex--ex-re "{\\[ex:\\([^\]]*\\)\\]}")
-(defvar numbex--rex-re "{\\[rex:\\([^\]]*\\)\\]}")
-(defvar numbex--r-ex-re "{\\[r?ex:\\([^\]]*\\)\\]}")
-(defvar numbex--pnrex-re "{\\[[pnr]+ex:\\([^\]]*\\)\\]}")
-(defvar numbex--pnex-re "{\\[[pn]+ex:\\([^\]]*\\)\\]}")
+;; There is some redundancy in some of these regexp but it is done for
+;; consistency: the first capture group is always the type, the second
+;; is always the label of the item.
+(defvar numbex--item-re "{\\[\\([pnr]?ex\\):\\([^\]]*\\)\\]}")
+(defvar numbex--ex-re "{\\[\\(ex\\):\\([^\]]*\\)\\]}")
+(defvar numbex--rex-re "{\\[\\(rex\\):\\([^\]]*\\)\\]}")
+(defvar numbex--r-ex-re "{\\[\\(r?ex\\):\\([^\]]*\\)\\]}")
+(defvar numbex--pnrex-re "{\\[\\([pnr]+ex\\):\\([^\]]*\\)\\]}")
+(defvar numbex--pnex-re "{\\[\\([pn]+ex\\):\\([^\]]*\\)\\]}")
 
 (defun numbex--item-at-point ()
-  "Return the position of the label of the item point is on.
+  "Return position of the label of the item point is on and its type.
 If point is on a numbex item, this function returns a cons cell
-whose car and cdr are the buffer positions of the first and last
-character of the label respectively.  Return nil if point is not
-on a numbex item."
+whose car is a cons cell with the buffer positions of the first
+and last character of the label respectively, and its cdr is a
+string corresponding to the type of the item.  Return nil if
+point is not on a numbex item.
+
+Thus, when point is on an item:
+ - (caar (numbex--item-at-point)) is the beginning of the label
+ - (cdar (numbex--item-at-point)) is the end of the label
+ - (cdr (numbex--item-at-point)) is the type of the label"
   (let ((position (point)))
     (save-excursion
       (beginning-of-line)
@@ -143,8 +152,10 @@ on a numbex item."
         (while (re-search-forward numbex--item-re (line-end-position) t)
           (when (<= (match-beginning 0) position (match-end 0))
             (throw 'found
-                   (cons (match-beginning 1)
-                         (match-end 1))))
+                   (cons (cons (match-beginning 2)
+                               (match-end 2))
+                         (buffer-substring-no-properties (match-beginning 1)
+                                                         (match-end 1)))))
           nil)))))
 
 (defmacro numbex--with-widened-indirect-buffer (&rest body)
@@ -175,9 +186,8 @@ once the buffer is widened again."
      (lambda ()
        (goto-char (point-min))
        (while (re-search-forward numbex--ex-re nil t)
-        (let ((lab
-                (buffer-substring-no-properties (match-beginning 1)
-                                                (match-end 1))))
+        (let ((lab (buffer-substring-no-properties (match-beginning 2)
+                                                   (match-end 2))))
           (unless (string-blank-p lab)
             (push lab labels-non-empty)
             (when (and (member lab labels)
@@ -238,8 +248,8 @@ non-nil, check the first example after point."
         (direction (if next 1 -1)))
     (save-excursion
       (if (re-search-forward numbex--ex-re nil t direction)
-          (cons (buffer-substring-no-properties (match-beginning 1)
-                                                (match-end 1))
+          (cons (buffer-substring-no-properties (match-beginning 2)
+                                                (match-end 2))
                 number)
         (cons "" number)))))
 
@@ -252,9 +262,11 @@ non-nil, check the first example after point."
       (while (re-search-forward numbex--r-ex-re nil t)
         (let ((b (match-beginning 0))
               (e (match-end 0))
-              (item (match-string-no-properties 0))
-              (lab (match-string-no-properties 1)))
-          (cond ((and (string-prefix-p "{[ex:" item)
+              (type (buffer-substring-no-properties (match-beginning 1)
+                                                    (match-end 1)))
+              (lab (buffer-substring-no-properties (match-beginning 2)
+                                                   (match-end 2))))
+          (cond ((and (equal type "ex")
                       (member lab numbex--duplicates)
                       numbex-highlight-duplicates)
                  (add-text-properties
@@ -278,17 +290,19 @@ Set 'numbex-hidden-labels' to t."
     (while (re-search-forward numbex--r-ex-re nil t)
       (setq numbex--total-number-of-items
             (1+ numbex--total-number-of-items))
-      (let ((label (match-string 1))
-            (item (match-string 0))
+      (let ((label (buffer-substring-no-properties (match-beginning 2)
+                                                   (match-end 2)))
+            (type (buffer-substring-no-properties (match-beginning 1)
+                                                  (match-end 1)))
             (b (match-beginning 0))
             (e (match-end 0)))
         (set-text-properties b e nil)
-        (cond ((string-prefix-p "{[e" item)
+        (cond ((equal type "ex")
                (put-text-property b e
                                   'display
                                   (cdr (assoc label
                                               numbex--label-number-pairs))))
-              ((string-prefix-p "{[r" item)
+              ((equal type "rex")
                (let* ((number
                        (if (string-blank-p label)
                            (numbex--number-closest-example)
@@ -304,15 +318,15 @@ Set 'numbex-hidden-labels' to t."
       (setq numbex--total-number-of-items
             (1+ numbex--total-number-of-items))
       (let* ((b (match-beginning 0))
-             (old-item (match-string 0))
-             (next (string-prefix-p "{[n" old-item))
-             (pre (if next "{[nex:"  "{[pex:")))
+             (old-type (buffer-substring-no-properties (match-beginning 1)
+                                                       (match-end 1)))
+             (prefix (concat "{[" old-type ":")))
         (replace-match "")
-        (let* ((closest (numbex--label-closest-example next))
+        (let* ((closest (numbex--label-closest-example (equal "nex" old-type)))
                (new-label (car closest))
                (new-number (cdr closest)))
           (goto-char b)
-          (insert (concat pre new-label "]}"))
+          (insert (concat prefix new-label "]}"))
           (re-search-backward numbex--pnex-re nil t)
           (put-text-property (match-beginning 0)
                              (match-end 0)
@@ -331,17 +345,15 @@ Set 'numbex-hidden-labels' to t."
       (numbex--remove-numbering)
     (numbex--add-numbering)))
 
-(defun numbex--edit (old-label-pos)
-  "Edit label starting at OLD-LABEL-POS.  Insert the new label."
+(defun numbex--edit (item)
+  "With ITEM being the output of 'numbex--item-at-point, insert new label."
   (save-excursion
     (let* ((old-label
-            (buffer-substring-no-properties (car old-label-pos)
-                                            (cdr old-label-pos)))
-           (ex (save-excursion
-                 (goto-char (car old-label-pos))
-                 (search-backward "{[ex" (- (car old-label-pos) 6) t)))
+            (buffer-substring-no-properties (car (car item))
+                                            (cdr (car item))))
+           (type (cdr item))
            (new-label
-            (if ex
+            (if (equal type "ex")
                 (read-string (format
                               "New label [default \"%s\"]: "
                               old-label)
@@ -357,23 +369,23 @@ Set 'numbex-hidden-labels' to t."
                   old-label nil
                   old-label t)))))
            (novel (not (member new-label numbex--existing-labels))))
-      (if (and ex
+      (if (and (equal type "ex")
                (not novel)
                (not (equal new-label old-label)))
           (if (not (yes-or-no-p (concat new-label
                                         " is already a label, are you sure?")))
-              (numbex--edit old-label-pos)
-            (goto-char (car old-label-pos))
-            (delete-region (car old-label-pos)
-                           (cdr old-label-pos))
+              (numbex--edit item)
+            (goto-char (car (car item)))
+            (delete-region (car (car item))
+                           (cdr (car item)))
             (insert new-label))
-        (goto-char (car old-label-pos))
-        (delete-region (car old-label-pos)
-                       (cdr old-label-pos))
+        (goto-char (car (car item)))
+        (delete-region (car (car item))
+                       (cdr (car item)))
         (insert new-label))
-      (when (and ex novel)
+      (when (and (equal type "ex") novel)
         (let ((rename (yes-or-no-p
-                       "Rename all corresponding references?"))
+                       "Relabel all corresponding references?"))
               (target (concat "{[rex:" old-label "]}"))
               (rep (concat "{[rex:" new-label "]}")))
           (when rename
@@ -385,7 +397,9 @@ Set 'numbex-hidden-labels' to t."
       ;; If item at point is nex: or pex:, make it into a rex:,
       ;; otherwise the new label will be wiped out automatically.  It
       ;; does not make sense to edit pex: and nex: items manually.
-      (when (re-search-backward "{\\[[pn]+ex" (- (car old-label-pos) 6) t)
+      (when (or (equal type "nex")
+                (equal type "pex"))
+        (re-search-backward "{\\[[pn]+ex")
         (replace-match "{[rex" t)))))
 
 (defun numbex--example ()
@@ -477,7 +491,7 @@ Set 'numbex-hidden-labels' to t."
 
 (defun numbex--search-at-point ()
   "Let user choose a regexp and grep for it."
-  (let* ((positions (numbex--item-at-point))
+  (let* ((positions (car (numbex--item-at-point)))
          (label (buffer-substring-no-properties (car positions)
                                                 (cdr positions)))
          (reg (if (string-blank-p label)
@@ -531,14 +545,14 @@ Set 'numbex-hidden-labels' to t."
   (save-excursion
     (goto-char (point-min))
     (while (re-search-forward numbex--ex-re nil t)
-      (let ((label (match-string-no-properties 1)))
+      (let ((label (match-string-no-properties 2)))
         (goto-char (match-beginning 0))
         (delete-region (match-beginning 0)
                        (match-end 0))
         (insert (concat "\\label{ex:" label "}"))))
     (goto-char (point-min))
     (while (re-search-forward numbex--pnrex-re nil t)
-      (let ((label (match-string-no-properties 1)))
+      (let ((label (match-string-no-properties 2)))
         (goto-char (match-beginning 0))
         (delete-region (match-beginning 0)
                        (match-end 0))
@@ -551,14 +565,14 @@ Set 'numbex-hidden-labels' to t."
   (save-excursion
     (goto-char (point-min))
     (while (re-search-forward "\\\\label{ex:\\([^\\]*\\)}" nil t)
-      (let ((label (match-string-no-properties 1)))
+      (let ((label (match-string-no-properties 2)))
         (goto-char (match-beginning 0))
         (delete-region (match-beginning 0)
                        (match-end 0))
         (insert (concat "{[ex:" label "]}"))))
     (goto-char (point-min))
     (while (re-search-forward "(\\\\ref{ex:\\([^\\]*\\)})" nil t)
-      (let ((label (match-string-no-properties 1)))
+      (let ((label (match-string-no-properties 2)))
         (goto-char (match-beginning 0))
         (delete-region (match-beginning 0)
                        (match-end 0))
@@ -573,7 +587,8 @@ Set 'numbex-hidden-labels' to t."
          (number (with-temp-buffer
                    (insert raw-properties)
                    (re-search-backward "display \\(([[:digit:]]+)\\)")
-                   (match-string 1))))
+                   (buffer-substring (match-beginning 1)
+                                     (match-end 1)))))
     number))
 
 ;;;###autoload
@@ -627,9 +642,11 @@ be added to 'numbex-mode-hook', 'auto-save-hook' and
       (goto-char (point-min))
       (while (re-search-forward numbex--item-re nil t)
         (replace-match
-         (replace-regexp-in-string "\s"
-                                   ""
-                                   (match-string-no-properties 0))
+         (replace-regexp-in-string
+          "\s"
+          ""
+          (buffer-substring-no-properties (match-beginning 0)
+                                          (match-end 0)))
          t)))
     (numbex--scan-buffer)
     (numbex--add-numbering)
@@ -649,21 +666,16 @@ appearance of the buffer is kept up to date as far as numbex is
 concerned."
   (when (and numbex-mode
              numbex--hidden-labels)
-    (let ((positions (numbex--item-at-point)))
-      (if positions
+    (let ((item (numbex--item-at-point)))
+      (if item
           ;; Point is on an item: show the underlying label.  If the
           ;; item is a reference, show the context of the
           ;; corresponding example as well.
-          (let* ((label
-                  (buffer-substring-no-properties (car positions)
-                                                  (cdr positions)))
-                 (rex (not
-                       (equal
-                        (buffer-substring-no-properties (- (car positions)
-                                                           5)
-                                                        (car positions))
-                        "{[ex:"))))
-            (if rex
+          (let* ((type (cdr item))
+                 (label
+                  (buffer-substring-no-properties (car (car item))
+                                                  (cdr (car item)))))
+            (if (not (equal type "ex"))
                 (message (concat label
                                  ": "
                                  (cdr (assoc label
