@@ -37,11 +37,11 @@ buffer back and forth from a state with and without the numbering.
 There are no preset default keybindings, but it is a good idea to
 define some for the two most common interactive commands: ~numbex-do~
 and ~numbex-toggle-display~.  The other interactive commands,
-explained below, are ~numbex-search~, ~numbe-refresh~,
+explained below, are ~numbex-search~, ~numbex-refresh~,
 ~numbex-convert-to-latex~, ~numbex-convert-from-latex~ and
 ~numbex-write-out-numbers~.
 
-** Basic usage with ~numbex-do~
+** Basic usage
 
 A "numbex item" is a buffer substring whose delimiters are ~{[~ and
 ~]}~, and whose body consist of a *prefix* and a *label*.  The prefix
@@ -66,19 +66,7 @@ anymore.)
 
 While you can manipulate these items yourself (either manually or
 programmatically), it is much more convenient to use the command
-~numbex-do~.  If you invoke this command while point is on a numbex
-item, it will allow you to edit the label, otherwise, it will let you
-create a new item.  The convenience of using this command is that it
-provides completion for selecting labels when you edit or create a
-reference, and warns you when you are trying to use a non-unique label
-when you edit or create a new example.  The interface of ~numbex-do~
-lets you choose an option from a selection in the echo area.
-
-#+CAPTION: Interface of ~numbex-do~.
-[[./screenshots/numbex-do-1.png]]
-[[./screenshots/numbex-do-select-label.png]]
-[[./screenshots/numbex-do-change-label.png]]
-[[./screenshots/numbex-do-confirm.png]]
+~numbex-do~ (more on this below).
 
 
 *** Numbering of examples
@@ -127,6 +115,42 @@ this is how ~numbex~ will number the items:
 If you look at (2) you will see that (3)...
 #+end_example
 
+*** Creating and editing items with ~numbex-do~
+
+The main command provided by numbex-mode is ~numbex-do~.  How this
+command behaves depends entirely on whether it is invoked while point
+is on an already existing item or not: in the former case, it will let
+you edit the item, in the latter, you will be guided in creating a new
+one.
+
+If point is not already on an item, ~numbex-do~ will prompt the choice
+of which item to create:
+
+[[./screenshots/numbex-do-1.png]]
+
+If you choose to create a reference, you will be offered completion
+with the labels that are already being used in the buffer:
+
+[[./screenshots/numbex-do-select-label.png]]
+
+If creating an example, if you choose a label that is already being
+used you will be asked to confirm your choice:
+
+[[./screenshots/numbex-do-confirm.png]]
+
+Evaluating ~numbex-do~ while point is on an item (regardless of
+whether labels are currently displayed or not) lets you change the
+label of the item.  Again, if it's a reference, you will be able to
+use completion on the existing labels, and if you try to duplicate a
+label on an example you will have to confirm.  If you are editing
+~pex:~ or ~nex:~ items, they will be automatically converted in
+regular references.  Finally, if you edit an example by providing a
+novel label, you will be asked whether you want to update the label of
+all the items that reference that example automatically.
+
+[[./screenshots/numbex-do-change-label.png]]
+
+
 ** Other conveniences
 
 When point is on an item, the underlying label is displayed in the
@@ -154,10 +178,10 @@ a mess once you widen the buffer again are minimized.
 *** Syntax highlighting
 
 By default, numbex color-codes numbers corresponding to unlabeled
-items or to items with a non-unique label.  This is done with whatever
-text property the current font-lock uses to mark comments and warnings
-(respectively).  If no font-lock is active, ~numbex~ uses gray and red
-respectively.
+items or to items with a non-unique label when the buffer is
+displaying the labels.  This is done with whatever text property the
+current theme uses to mark comments and warnings (respectively).
+
 
 #+begin_example
 {[ex:]} Odd example
@@ -199,10 +223,10 @@ are actually replaced by the numbers.
 
 Finally, ~numbex-search~ is a convenient wrapper around ~occur~ that
 lets you examine the items in the buffer: use it to have, in other
-window, a grep-like overview of the lines that contain any item, or
-any example, or any reference, or any item with the same label as the
-item at point (if ~numbex-search~ is evaluated when point is on an
-item).
+window, a grep-like overview of the lines that contain any item, any
+example, any reference, any item with a non-unique label, any
+unlabeled item, or, when evaluated when point is on an item, any item
+with the same label as the item at point.
 
 ** Dealing with large files
 
@@ -232,6 +256,6 @@ course when you interactively call it as a command.  Regardless of
 what you answer to that question, any time that there are more than
 1000 numbex items in the buffer, ~numbex-refresh~ won't be evaluated
 on the idle-timer every 0.3 seconds.  It is unlikely, however, that
-you will ever have more than 1000 between examples and references in a
-single buffer.  If you plan to keep notes with more than /ten
-thousand/ items... it's better if you don't use ~numbex-mode~ at all.
+you will ever have this many examples and references in a single
+buffer.  If you plan to keep notes with more than /ten thousand/
+items... it's better if you don't use ~numbex-mode~ at all.
