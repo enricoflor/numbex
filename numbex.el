@@ -707,21 +707,6 @@ concerned."
         (when choice
             (setq numbex--automatic-refresh nil))))))
 
-(defun numbex--hook-functions ()
-  "Initialize 'numbex-mode'.  To be added to 'numbex-mode-hook'.
-Evaluates 'numbex-refresh' and adds the same function to
-'auto-save-hook' and 'before-save-hook'."
-  (numbex--count-and-ask)
-  (numbex-refresh)
-  (add-hook 'auto-save-hook
-            #'numbex-refresh
-            nil t)
-  (add-hook 'before-save-hook
-            #'numbex-refresh
-            nil t))
-
-(add-hook 'numbex-mode-hook #'numbex--hook-functions)
-
 (defun numbex--toggle-font-lock-keyword (&optional add)
   "Remove or add font-lock-keyword making numbex items invisible.
 If the value of ADD is t, add the keyword and set
@@ -758,7 +743,11 @@ set the same variable to nil.  Finally, evaluate
          nil
          '(("{\\[[pnr]?ex:\\([^\]]*\\)\\]}"
             0 '(face nil invisible t) append)))
-        (font-lock-update))
+        (font-lock-update)
+        (numbex--count-and-ask)
+        (numbex-refresh)
+        (add-hook 'auto-save-hook #'numbex-refresh nil t)
+        (add-hook 'before-save-hook #'numbex-refresh nil t))
     ;; leaving numbex-mode
     (cancel-timer numbex--idle-timer)
     (setq numbex--idle-timer nil)
@@ -767,7 +756,9 @@ set the same variable to nil.  Finally, evaluate
          nil
          '(("{\\[[pnr]?ex:\\([^\]]*\\)\\]}"
             0 '(face nil invisible t) append)))
-    (font-lock-update)))
+    (font-lock-update)
+    (remove-hook 'auto-save-hook #'numbex-refresh t)
+    (remove-hook 'before-save-hook #'numbex-refresh t)))
 
 (provide 'numbex)
 
