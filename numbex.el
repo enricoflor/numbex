@@ -776,6 +776,9 @@ be added to 'numbex-mode-hook', 'auto-save-hook' and
     (unless no-echo
       (numbex--echo-duplicates))))
 
+(defconst numbex--safe-number-items 1000
+  "The largest number of numbex items in a buffer considered safe.")
+
 (defun numbex--timed ()
   "Housekeeping function to be evaluated on 'numbex--idle-timer'.
 If not in 'numbex-mode' or 'numbex--hidden-labels' is nil, do
@@ -807,20 +810,21 @@ concerned."
         ;; renumber the items.  Do it only if this wouldn't cripple
         ;; everything.
         (numbex--highlight)
-        (unless (or (> numbex--total-number-of-items 1000)
+        (unless (or (> numbex--total-number-of-items numbex--safe-number-items)
                     (not numbex--automatic-refresh))
           (numbex--scan-buffer)
           (numbex--add-numbering))))))
 
 (defun numbex--count-and-ask ()
-  "With more than 1000 items, ask whether to automatically refresh."
+  "With more than 1000 items, ask whether to automatically refresh.
+1000 is the default value of 'numbex--safe-number-items'."
   (save-excursion
     (goto-char (point-min))
     (setq numbex--total-number-of-items 0)
     (while (re-search-forward numbex--item-re nil t)
       (setq numbex--total-number-of-items
             (1+ numbex--total-number-of-items)))
-    (when (and (> numbex--total-number-of-items 1000)
+    (when (and (> numbex--total-number-of-items numbex--safe-number-items)
                numbex--automatic-refresh)
       (let* ((question
               (format "There are %s items in the buffer.\nDo you want to disable automatic refresh (you can refresh yourself with 'numbex-refresh')?"
