@@ -301,7 +301,8 @@ non-nil, check the first example after point."
       (if (re-search-forward numbex--ex-re nil t direction)
           (cons (buffer-substring-no-properties (match-beginning 2)
                                                 (match-end 2))
-                (numbex--get-number (match-beginning 2)))
+                (plist-get (text-properties-at (match-beginning 2))
+                           'display))
         (cons "" "(--)")))))
 
 (defun numbex--highlight ()
@@ -711,17 +712,6 @@ Set 'numbex-hidden-labels' to t."
   (when numbex--automatic-refresh
     (numbex-refresh)))
 
-(defun numbex--get-number (p)
-  "Return the number assigned to item at position P."
-  (let* ((raw-properties (format "%s"
-                                 (text-properties-at p)))
-         (number (with-temp-buffer
-                   (insert raw-properties)
-                   (re-search-backward "display \\(([[:digit:]]+)\\)" nil t)
-                   (buffer-substring (match-beginning 1)
-                                     (match-end 1)))))
-    number))
-
 ;;;###autoload
 (defun numbex-write-out-numbers ()
   "Write buffer to new file with numbers instead of numbex items."
@@ -740,7 +730,8 @@ Set 'numbex-hidden-labels' to t."
       (while (re-search-forward numbex--item-re nil t)
         (let* ((b (match-beginning 0))
                (e (match-end 0))
-               (number (numbex--get-number b)))
+               (number (plist-get (text-properties-at (match-beginning 2))
+                                  'display)))
           (goto-char b)
           (delete-region b e)
           (insert number)))
