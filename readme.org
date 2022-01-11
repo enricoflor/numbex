@@ -38,8 +38,8 @@ There are no preset default keybindings, but it is a good idea to
 define some for the two most common interactive commands: ~numbex-do~
 and ~numbex-toggle-display~.  The other interactive commands,
 explained below, are ~numbex-search~, ~numbex-refresh~,
-~numbex-convert-to-latex~, ~numbex-convert-from-latex~ and
-~numbex-write-out-numbers~.
+~numbex-toggle-relative-numbering~, ~numbex-convert-to-latex~,
+~numbex-convert-from-latex~ and ~numbex-write-out-numbers~.
 
 ** Basic usage
 
@@ -71,8 +71,44 @@ programmatically), it is much more convenient to use the command
 
 *** Numbering of examples
 
-Examples, whether labeled or not, are just numbered sequentially,
-starting with ~(1)~ on the very first example in the buffer.
+How examples are numbered depends on the value of the buffer-local
+variable ~numbex-relative-numbering~ (by default ~nil~).  The value of
+this variable can be toggled interactively with the command
+~numbex-toggle-relative-numbering~.
+
+**** Absolute numbering
+
+If ~numbex-relative-numbering~ is ~nil~, examples, whether labeled or
+not, are just numbered sequentially, starting with ~(1)~ on the very
+first example in the buffer.  The numbering is absolute because there
+is just one counter for the entire buffer.  For example, if the buffer
+is narrowed, the very first example will be labeled as ~(2)~ if there
+is another example that comes before it in the widened buffer.
+
+**** Relative numbering
+
+Relative numbering is handy when working with very large files.  If
+you set ~numbex-relative-numbering~, the counter will be reset at
+every /page/, that is, at every form-feed character (ASCII 12) which
+you can insert in the buffer with ~C-q C-l~.  Imagine you have example
+X and Y which are numbered ~(7)~ and ~(8)~ respectively: if you insert
+a form-feed character between them, and relative numbering is active,
+Y will be labeled ~(1)~, and the example after it ~(2)~ and so on.
+Similarly, if you narrow the buffer the numbering of examples in the
+narrowed buffer will start again from ~(1)~.
+
+It is important to note that *only the numbering* is affected by
+~numbex-relative-numbering~.  This means that labels have to be unique
+across the buffer no matter how this variable is set, and that you can
+always reference examples outside of the /page/ or the narrowed
+buffered, if you have the label, and that the number on such reference
+will be the one that the example you are referencing has---and this
+could cause local ambiguities (with relative numbering, there can be
+several distinct examples in the buffer that are numbered with, say,
+~(1)~).  Furthermore, since the information about the buffer is always
+retrievable, you will always get the context of an example you are
+referencing, even with relative numbering and when referencing an
+example that is outside of the accessible portion of the buffer.
 
 *** Numbering of references
 
