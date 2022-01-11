@@ -318,8 +318,7 @@ non-nil, check the first example after point."
                                                     (match-end 1)))
               (lab (buffer-substring-no-properties (match-beginning 2)
                                                    (match-end 2))))
-          (cond ((and (equal type "ex")
-                      (member lab numbex--duplicates)
+          (cond ((and (member lab numbex--duplicates)
                       numbex-highlight-duplicates)
                  (add-text-properties
                   b e
