@@ -296,14 +296,13 @@ example after point."
   "Return pair of label and number of closest examples.
 By default, check the first example before point; if NEXT is
 non-nil, check the first example after point."
-  (let ((number (numbex--number-closest-example next))
-        (direction (if next 1 -1)))
+  (let ((direction (if next 1 -1)))
     (save-excursion
       (if (re-search-forward numbex--ex-re nil t direction)
           (cons (buffer-substring-no-properties (match-beginning 2)
                                                 (match-end 2))
-                number)
-        (cons "" number)))))
+                (numbex--get-number (match-beginning 2)))
+        (cons "" "(--)")))))
 
 (defun numbex--highlight ()
   "Highlight items without labels or with non-unique ones."
@@ -458,6 +457,7 @@ Set 'numbex-hidden-labels' to t."
   (setq numbex--hidden-labels t))
 
 (defun numbex-toggle-relative-numbering ()
+  "Toggle value of 'numbex-relative-numbering' (buffer-local)."
   (interactive)
   (if numbex-relative-numbering
       (progn
@@ -717,7 +717,7 @@ Set 'numbex-hidden-labels' to t."
                                  (text-properties-at p)))
          (number (with-temp-buffer
                    (insert raw-properties)
-                   (re-search-backward "display \\(([[:digit:]]+)\\)")
+                   (re-search-backward "display \\(([[:digit:]]+)\\)" nil t)
                    (buffer-substring (match-beginning 1)
                                      (match-end 1)))))
     number))
