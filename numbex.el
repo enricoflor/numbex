@@ -115,11 +115,8 @@ specified by 'font-lock-warning-face'."
 ;; consistency: the first capture group is always the type, the second
 ;; is always the label of the item.
 (defvar numbex--item-re "{\\[\\([pnr]?ex\\):\\([^\]]*\\)\\]}")
-(defvar numbex--ex-re "{\\[\\(ex\\):\\([^\]]*\\)\\]}")
-(defvar numbex--rex-re "{\\[\\(rex\\):\\([^\]]*\\)\\]}")
-(defvar numbex--r-ex-re "{\\[\\(r?ex\\):\\([^\]]*\\)\\]}")
-(defvar numbex--pnrex-re "{\\[\\([pnr]+ex\\):\\([^\]]*\\)\\]}")
-(defvar numbex--pnex-re "{\\[\\([pn]+ex\\):\\([^\]]*\\)\\]}")
+(defvar numbex--example-re "{\\[\\(ex\\):\\([^\]]*\\)\\]}")
+(defvar numbex--reference-re "{\\[\\([pnr]+ex\\):\\([^\]]*\\)\\]}")
 
 (defun numbex--item-at-point ()
   "Return position of the label of the item point is on and its type.
@@ -500,9 +497,9 @@ Set 'numbex-hidden-labels' to t."
     (cond ((equal choice '(?a "all"))
            (occur numbex--item-re))
           ((equal choice '(?e "examples"))
-           (occur numbex--ex-re))
+           (occur numbex--example-re))
           ((equal choice '(?r "references"))
-           (occur numbex--pnrex-re))
+           (occur numbex--reference-re))
           ((equal choice '(?d "duplicates"))
            (occur (regexp-opt
                    (nconc (mapcar (lambda (x) (concat "{[ex:"
@@ -534,9 +531,9 @@ Set 'numbex-hidden-labels' to t."
     (cond ((equal choice '(?a "all"))
            (occur numbex--item-re))
           ((equal choice '(?e "examples"))
-           (occur numbex--ex-re))
+           (occur numbex--example-re))
           ((equal choice '(?r "references"))
-           (occur numbex--pnrex-re))
+           (occur numbex--reference-re))
           ((equal choice '(?l "label at point"))
            (occur reg))
           ((equal choice '(?d "duplicates"))
@@ -571,14 +568,14 @@ Set 'numbex-hidden-labels' to t."
   (numbex--add-numbering)
   (save-excursion
     (goto-char (point-min))
-    (while (re-search-forward numbex--ex-re nil t)
+    (while (re-search-forward numbex--example-re nil t)
       (let ((label (match-string-no-properties 2)))
         (goto-char (match-beginning 0))
         (delete-region (match-beginning 0)
                        (match-end 0))
         (insert (concat "\\label{ex:" label "}"))))
     (goto-char (point-min))
-    (while (re-search-forward numbex--pnrex-re nil t)
+    (while (re-search-forward numbex--reference-re nil t)
       (let ((label (match-string-no-properties 2)))
         (goto-char (match-beginning 0))
         (delete-region (match-beginning 0)
