@@ -182,7 +182,7 @@ Kill the indirect buffer when done with BODY."
 ;; When 'numbex--add-numbering' is evaluated, if
 ;; 'numbex--relative-numbering' is t, the examples will be numbered in
 ;; loop by popping values out of this list.
-(defvar-local numbex--relative-number-list nil
+(defvar-local numbex--numbers-list nil
   "A list of strings with to the relative numbering in the buffer.")
 
 (defvar-local numbex-relative-numbering nil
@@ -203,42 +203,46 @@ once the buffer is widened again."
   ;; First of all, clear the two hash tables
   (clrhash numbex--label-number)
   (clrhash numbex--label-line)
-  (let ((labels '())
+  (let ((narrowed (buffer-narrowed-p))
+        (start-of-buffer (point-min))
+        (point-in-narrowing nil)
+        (labels '())
         (duplicates '())
-        (relative-numbers-list '())
-        (absolute-counter 1)
-        (relative-counter 1))
+        (numbers '())
+        (counter 1))
     (numbex--with-widened-indirect-buffer
      (lambda ()
        (while (re-search-forward numbex--ex-form-feed-re nil t)
          (if (equal "" (match-string-no-properties 0))
-             ;; We hit a form-feed character: all there is to do is to
-             ;; reset the relative counter to 1, so that the next
-             ;; example item will be assigned "(1)".
-             (setq relative-counter 1)
+             ;; We hit a form-feed character: If
+             ;; numbex-relative-numbering is t, reset the counter to
+             ;; 1, otherwise do nothing
+             (when numbex-relative-numbering
+               (setq counter 1))
            ;; We hit an example item: we have to fill up our hash
-           ;; tables and lists.
+           ;; tables and lists.  Before doing this, we might need to
+           ;; reset the counter to 1 if the buffer was narrowed, we
+           ;; want relative numbering, and the point now is after the
+           ;; original (point-min), that is, it has entered the
+           ;; narrowed portion of the buffer.  If all this is the
+           ;; case, reset the counter and set 'point-in-narrowing' to
+           ;; t so that it won't reset again at the next match.
+           (when (and (not point-in-narrowing)
+                      numbex-relative-numbering
+                      narrowed
+                      (> (point) start-of-buffer))
+             (setq point-in-narrowing t)
+             (setq counter 1))
            (let* ((lab (buffer-substring-no-properties (match-beginning 2)
                                                        (match-end 2)))
-                  ;; Here the choice of relative vs absolute numbering
-                  ;; has an effect: this value will end up in the hash
-                  ;; table that associates labels with numbers (that
-                  ;; is, the one that is accessed when it's time to
-                  ;; assign numbers to reference items).
-                  (number (if numbex-relative-numbering
-                              relative-counter
-                            absolute-counter))
                   ;; For convenience, let's store strings of the form
                   ;; "(1)" instead of numbers like 1 in the lists, so
                   ;; we won't have to bother convert it later when
                   ;; it's time to put them as display text properties.
                   (n-string (concat (car numbex-delimiters)
-                                    (number-to-string number)
+                                    (number-to-string counter)
                                     (cdr numbex-delimiters))))
-             (push (concat (car numbex-delimiters)
-                           (number-to-string relative-counter)
-                           (cdr numbex-delimiters))
-                   relative-numbers-list)
+             (push n-string numbers)
              (unless (string-blank-p lab)
                (when (and (member lab labels)
                           (not (member lab duplicates)))
@@ -247,77 +251,35 @@ once the buffer is widened again."
                  (push lab duplicates))
                (push lab labels))      ; only non-empty labels matter
              (puthash lab n-string numbex--label-number)
-             (puthash lab
-                      (buffer-substring-no-properties
-                       (match-end 0)
-                       (line-end-position))
+             (puthash lab (buffer-substring-no-properties (match-end 0)
+                                                          (line-end-position))
                       numbex--label-line))
            ;; Before the next iteration, increment both counters
-           (setq absolute-counter (1+ absolute-counter))
-           (setq relative-counter (1+ relative-counter))))))
+           (setq counter (1+ counter))))))
     ;; Now we are out of the indirect buffer, and we can set the rest
     ;; of the buffer local variables with the values we obtained from
     ;; the loop.
-    (setq numbex--relative-number-list (nreverse relative-numbers-list))
+    (setq numbex--numbers-list (nreverse numbers))
     (setq numbex--duplicates duplicates)
     (setq numbex--existing-labels labels)))
 
-(defun numbex--remove-numbering ()
+(defun numbex--remove-numbering (&optional no-colors)
   "Remove all numbex text properties from the buffer.
-Set 'numbex--hidden-labels' to nil."
+Set 'numbex--hidden-labels' to nil.  If NO-COLORS is t, don't set
+font-lock-faces."
   (save-excursion
     (goto-char (point-min))
     (while (re-search-forward numbex--item-re nil t)
-      (set-text-properties (match-beginning 0)
-                           (match-end 0)
-                           nil)))
-  (numbex--toggle-font-lock-keyword)
-  (numbex--highlight)
-  (setq numbex--hidden-labels nil))
-
-(defun numbex--number-closest-example (&optional next)
-  "Return the number assigned to the first example before point.
-If NEXT is non-nil, return the number assigned to the first
-example after point."
-  (let* ((m (if next 1 0))
-         (n
-          (+ m
-             (how-many numbex--ex-re
-                       (point-min) (point)))))
-  (if (= n 0)
-      (concat (car numbex-delimiters)
-              "0"
-              (cdr numbex-delimiters))
-    (concat (car numbex-delimiters)
-            (number-to-string n)
-            (cdr numbex-delimiters)))))
-
-(defun numbex--label-closest-example (&optional next)
-  "Return pair of label and number of closest examples.
-By default, check the first example before point; if NEXT is
-non-nil, check the first example after point."
-  (let ((direction (if next 1 -1)))
-    (save-excursion
-      (if (re-search-forward numbex--ex-re nil t direction)
-          (cons (buffer-substring-no-properties (match-beginning 2)
-                                                (match-end 2))
-                (plist-get (text-properties-at (match-beginning 2))
-                           'display))
-        (cons "" "(--)")))))
-
-(defun numbex--highlight ()
-  "Highlight items without labels or with non-unique ones."
-  (when (or numbex-highlight-duplicates
-            numbex-highlight-unlabeled)
-    (save-excursion
-      (goto-char (point-min))
-      (while (re-search-forward numbex--r-ex-re nil t)
-        (let ((b (match-beginning 0))
-              (e (match-end 0))
-              (type (buffer-substring-no-properties (match-beginning 1)
-                                                    (match-end 1)))
-              (lab (buffer-substring-no-properties (match-beginning 2)
-                                                   (match-end 2))))
+      (let ((b (match-beginning 0))
+            (e (match-end 0))
+            (type (buffer-substring-no-properties (match-beginning 1)
+                                                  (match-end 1)))
+            (lab (buffer-substring-no-properties (match-beginning 2)
+                                                 (match-end 2))))
+        (set-text-properties b e nil)
+        (when (or (equal type "ex")
+                  (equal type "rex")
+                  (not no-colors))
           (cond ((and (member lab numbex--duplicates)
                       numbex-highlight-duplicates)
                  (add-text-properties
@@ -325,21 +287,16 @@ non-nil, check the first example after point."
                   '(font-lock-face font-lock-warning-face))
                  (put-text-property b e 'rear-nonsticky t))
                 ((and numbex-highlight-unlabeled
+                      (equal type "rex")
                       (string-blank-p lab))
                  (add-text-properties
                   b e
                   '(font-lock-face font-lock-comment-face))
                  (put-text-property b e 'rear-nonsticky t))
-                (t nil)))))))
+                (t nil))))))
+  (numbex--toggle-font-lock-keyword)
+  (setq numbex--hidden-labels nil))
 
-;; This function adds the numbers as display text property.  The first
-;; pass is to number examples and simple references.  If
-;; 'numbex-relative-numbering' it t, the numbers of the examples are
-;; taken from 'numbex--relative-number-list', otherwise, the numbers
-;; are just incremented from 1.  If the buffer is narrowed, however,
-;; and 'numbex-relative-numbering' is t, we need to start from (1) in
-;; the narrowed portion of the buffer no matter what (and number
-;; references accordingly).
 (defun numbex--add-numbering ()
   "Number items in the buffer as text properties.
 Set 'numbex-hidden-labels' to t."
@@ -347,112 +304,51 @@ Set 'numbex-hidden-labels' to t."
   ;; First, let's number the examples.  If the buffer is narrowed
   ;; and 'numbex-relative-numbering' is t, we just need to number
   ;; the examples in the buffer.
-  (if (and (buffer-narrowed-p)
-           numbex-relative-numbering)
-      (save-excursion
-        (goto-char (point-min))
-        (let ((counter 1))
-          (while (re-search-forward numbex--ex-form-feed-re nil t)
-            (if (equal "" (match-string-no-properties 0))
-                (setq counter 1)
-              ;; We hit an example: add to the total number first
-              (setq numbex--total-number-of-items
-                    (1+ numbex--total-number-of-items))
-              (let ((n (concat (car numbex-delimiters)
-                               (number-to-string counter)
-                               (cdr numbex-delimiters)))
-                    (label (buffer-substring-no-properties
-                            (match-beginning 2)
-                            (match-end 2)))
-                    (b (match-beginning 0))
-                    (e (match-end 0)))
-                (set-text-properties b e nil)
-                ;; Just put the number
-                (put-text-property b e 'display n)
-                ;; Change the entry in the hash table so that
-                ;; reference to this example will pick up the number
-                ;; relative to the narrowing instead fo the one
-                ;; relative to the widened buffer.  Do this only if
-                ;; the label is non-empty, of course.
-                (unless (string-blank-p label)
-                  (puthash label n numbex--label-number))
-                (setq counter (1+ counter)))))))
-    ;; Buffer is either not narrowed or 'numbex-relative-numbering'
-    ;; is nil.  Either way, it's better if we do what we need to do
-    ;; in an inderect buffer, using the same macro used in
-    ;; 'numbex--scan-buffer'
-    (numbex--with-widened-indirect-buffer
-     (lambda ()
-       (let ((abs-n 1))
-         (while (re-search-forward numbex--ex-re nil t)
-           ;; Add to the total number first
-           (setq numbex--total-number-of-items
-                 (1+ numbex--total-number-of-items))
-           (let ((b (match-beginning 0))
-                 (e (match-end 0))
-                 ;; If we want relative-numbering, pop from the
-                 ;; approriate list, otherwise just count:
-                 (n (if numbex-relative-numbering
-                        (pop numbex--relative-number-list)
-                      (concat (car numbex-delimiters)
-                              (number-to-string abs-n)
-                              (cdr numbex-delimiters)))))
-             (set-text-properties b e nil)
-             (put-text-property b e 'display n)
-             (setq abs-n (1+ abs-n))))))))
-  ;; Now we can take care of the references, in a single loop:
   (numbex--with-widened-indirect-buffer
    (lambda ()
-     (while (re-search-forward numbex--pnrex-re nil t)
-       ;; Add to the total numer first.
-       (setq numbex--total-number-of-items
-             (1+ numbex--total-number-of-items))
-       (let ((label (buffer-substring-no-properties (match-beginning 2)
-                                                    (match-end 2)))
-             (type (buffer-substring-no-properties (match-beginning 1)
-                                                   (match-end 1)))
-             (b (match-beginning 0))
-             (e (match-end 0)))
-         (set-text-properties b e nil)
-         ;; Now, depending whether it's a rex:, pex: or nex: we must
-         ;; do different things.
-         (if (equal type "rex")
-             ;; If the item is {[rex:]}, without a label, give it
-             ;; the number of the closes example.  Otherwise, look
-             ;; up the hash table to find the number to give.  If
-             ;; no key corresponding to the label is found it means
-             ;; that the non-empty label is not being used by any
-             ;; example (yet), so the reference will appear as
-             ;; "(--)":
-             (let ((n (if (string-blank-p label)
-                          (numbex--number-closest-example)
-                        (gethash label
-                                 numbex--label-number
-                                 "(--)"))))
-               (put-text-property b e 'display n))
-           ;; We hit a special reference: first thing to do is to
-           ;; remove it:
-           (replace-match "")
-           ;; Now we need to get the label and number of the closes
-           ;; example: the function 'numbex--label-closest-example'
-           ;; fetches this information about the example immediately
-           ;; following of preceding point, depending if its argument
-           ;; is t or nil.  Thus, we must feed it the correct argument
-           ;; according to whether we deal with a pex: or nex: item.
-           (let* ((closest
-                   (numbex--label-closest-example (equal "nex" type)))
-                  (new-label (car closest))
-                  (new-number (cdr closest)))
-             ;; Let's go to where the item was and insert the new one.
-             (goto-char b)
-             (insert (concat "{[" type ":" new-label "]}"))
-             ;; Now let's search for it backwards to know where to put
-             ;; the text property:
-             (re-search-backward numbex--pnex-re nil t)
-             (put-text-property (match-beginning 0)
-                                (match-end 0)
-                                'display new-number)
-             (goto-char (match-end 0))))))))
+     (let ((previous-ex-n "(1)"))
+       (while (re-search-forward numbex--item-re nil t)
+         ;; Add to the total number first
+         (setq numbex--total-number-of-items
+               (1+ numbex--total-number-of-items))
+         (let ((b (match-beginning 0))
+               (e (match-end 0))
+               (type (buffer-substring-no-properties (match-beginning 1)
+                                                     (match-end 1)))
+               (label (buffer-substring-no-properties (match-beginning 2)
+                                                      (match-end 2))))
+           (set-text-properties b e nil)
+           (cond ((equal type "ex")
+                  ;; As number, take the current car of
+                  ;; numbex--numbers-list:
+                  (let ((num (pop numbex--numbers-list)))
+                    (put-text-property
+                     b e
+                     'display num)
+                    (setq previous-ex-n num)))
+                 ;; If the item is {[rex:]}, without a label, give it
+                 ;; the number of the closes example.  Otherwise, look
+                 ;; up the hash table to find the number to give.  If
+                 ;; no key corresponding to the label is found it means
+                 ;; that the non-empty label is not being used by any
+                 ;; example (yet), so the reference will appear as
+                 ;; "(--)":
+                 ((equal type "rex")
+                  (let ((num (if (string-blank-p label)
+                                 previous-ex-n
+                               (gethash label
+                                        numbex--label-number
+                                        "(--)"))))
+                    (put-text-property b e 'display num)))
+                 ((equal type "pex")
+                  (replace-match "" t t nil 2)
+                  (put-text-property b e 'display previous-ex-n))
+                 ((equal type "nex")
+                  (replace-match "" t t nil 2)
+                  (let ((num (if (car numbex--numbers-list)
+                                 (car numbex--numbers-list)
+                               "(--)")))
+                    (put-text-property b e 'display num)))))))))
   (numbex--toggle-font-lock-keyword t)
   (setq numbex--hidden-labels t))
 
@@ -750,7 +646,6 @@ Set 'numbex-hidden-labels' to t."
                                   numbex--duplicates
                                   "  "))))))
 
-
 (defun numbex-refresh (&optional no-echo)
   "Scan the buffer and assign numbers.
 If NO-ECHO is non-nil, do not warn about duplicates.  This is to
@@ -809,11 +704,12 @@ concerned."
         ;; Point is not on an item, just rescan the buffer and
         ;; renumber the items.  Do it only if this wouldn't cripple
         ;; everything.
-        (numbex--highlight)
         (unless (or (> numbex--total-number-of-items numbex--safe-number-items)
                     (not numbex--automatic-refresh))
           (numbex--scan-buffer)
-          (numbex--add-numbering))))))
+          (if numbex--hidden-labels
+              (numbex--add-numbering)
+            (numbex--remove-numbering)))))))
 
 (defun numbex--count-and-ask ()
   "With more than 1000 items, ask whether to automatically refresh.
@@ -877,7 +773,7 @@ set the same variable to nil.  Finally, evaluate
     ;; leaving numbex-mode
     (cancel-timer numbex--idle-timer)
     (setq numbex--idle-timer nil)
-    (numbex--remove-numbering)
+    (numbex--remove-numbering t)
     (font-lock-remove-keywords
          nil
          '(("{\\[[pnr]?ex:\\([^\]]*\\)\\]}"
@@ -894,3 +790,4 @@ set the same variable to nil.  Finally, evaluate
 ;; End:
 
 ;;; numbex.el ends here
+
