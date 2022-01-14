@@ -159,10 +159,10 @@ Kill the indirect buffer when done with BODY."
 ;; These are the hash tables and list that are reset at every
 ;; evaluation of 'numbex--scan-buffer': they contain all the
 ;; information pertinent to the numbering and the referencing of examples.
-(defvar-local numbex--label-number (make-hash-table :test 'equal)
+(defvar-local numbex--label-number nil
   "Hash table mapping labels of examples to the number assigned.")
 
-(defvar-local numbex--label-line (make-hash-table :test 'equal)
+(defvar-local numbex--label-line nil 
   "Hash table a label to the line of the corresponding example.")
 
 (defvar-local numbex--duplicates nil
@@ -197,17 +197,21 @@ narrowed, numbex will behave taking into consideration the entire
 buffer.  This reduces the risk of working on a narrowed buffer
 and ending up with many duplicate labels or mistaken references
 once the buffer is widened again."
-  ;; First of all, clear the two hash tables
-  (clrhash numbex--label-number)
-  (clrhash numbex--label-line)
-  (setq numbex--total-number-of-items 0)
-  (let ((narrowed (buffer-narrowed-p))
+  ;; First of all, recreate the two hash tables with the size of the
+  ;; last value of 'numbex--existing-labels'
+  (let ((old-number-labels (length numbex--existing-labels))
+        (narrowed (buffer-narrowed-p))
         (start-of-buffer (point-min))
         (point-in-narrowing nil)
         (labels '())
         (duplicates '())
         (numbers '())
         (counter 1))
+    (setq numbex--label-line (make-hash-table :test 'equal
+                                              :size old-number-labels))
+    (setq numbex--label-number (make-hash-table :test 'equal
+                                                :size old-number-labels))
+    (setq numbex--total-number-of-items 0)
     (numbex--with-widened-indirect-buffer
      (lambda ()
        (while (re-search-forward numbex--item-form-feed-re nil t)
@@ -664,7 +668,10 @@ be added to 'numbex-mode-hook', 'auto-save-hook' and
       (numbex--echo-duplicates))))
 
 (defconst numbex--safe-number-items 1000
-  "The largest number of numbex items in a buffer considered safe.")
+  "The largest number of numbex items in a buffer considered safe.
+Numbex can deal with larger numbers than that, but in the
+interest of performance the refresh on idle timer should be
+disabled at a certain point.")
 
 (defun numbex--timed ()
   "Housekeeping function to be evaluated on 'numbex--idle-timer'.
@@ -698,6 +705,11 @@ concerned."
         ;; everything.
         (unless (or (> numbex--total-number-of-items numbex--safe-number-items)
                     (not numbex--automatic-refresh))
+          ;; Giving t as an argument prevents 'numbex-refresh' to
+          ;; annoy the user with messages in the echo area about
+          ;; duplicate labels.  They will only be shown if the
+          ;; function is called interactively or when it is evaluated
+          ;; on auto-save and before-save-hook.
           (numbex-refresh t))))))
 
 (defun numbex--count-and-ask ()
@@ -748,6 +760,7 @@ set the same variable to nil.  Finally, evaluate
         (unless numbex--idle-timer
           (setq numbex--idle-timer
                 (run-with-idle-timer 0.3 t #'numbex--timed)))
+        ;; Numbex needs font-lock
         (unless font-lock-mode
           (font-lock-mode 1))
         (font-lock-add-keywords
@@ -756,6 +769,10 @@ set the same variable to nil.  Finally, evaluate
             0 '(face nil invisible t) append)))
         (font-lock-update)
         (numbex--count-and-ask)
+        ;; For the first time they are created, let the hash tables
+        ;; have the default size of 65
+        (setq numbex--label-line (make-hash-table :test 'equal))
+        (setq numbex--label-number (make-hash-table :test 'equal))
         (numbex-refresh)
         (add-hook 'auto-save-hook #'numbex-refresh nil t)
         (add-hook 'before-save-hook #'numbex-refresh nil t))
