@@ -162,7 +162,7 @@ Kill the indirect buffer when done with BODY."
 (defvar-local numbex--label-number nil
   "Hash table mapping labels of examples to the number assigned.")
 
-(defvar-local numbex--label-line nil 
+(defvar-local numbex--label-line nil
   "Hash table a label to the line of the corresponding example.")
 
 (defvar-local numbex--duplicates nil
@@ -450,22 +450,22 @@ Set 'numbex-hidden-labels' to t."
         (if (yes-or-no-p (format
                           "\"%s\" is already a label, are you sure?"
                           label))
-            (insert (concat "{[ex:" label "]}"))
+            (insert "{[ex:" label "]}")
           (numbex--example))
-      (insert (concat "{[ex:" label "]}")))))
+      (insert "{[ex:" label "]}"))))
 
 (defun numbex--reference ()
   "Insert a new reference item."
   (insert
-   (concat "{[rex:"
-           (car (list
-                 (completing-read
-                  "Label [default empty]: "
-                  numbex--existing-labels
-                  nil nil
-                  nil nil
-                  "" t)))
-           "]}")))
+   "{[rex:"
+   (car (list
+         (completing-read
+          "Label [default empty]: "
+          numbex--existing-labels
+          nil nil
+          nil nil
+          "" t)))
+   "]}"))
 
 (defun numbex--new ()
   "Insert a new item."
@@ -589,8 +589,8 @@ Set 'numbex-hidden-labels' to t."
         (delete-region (match-beginning 0)
                        (match-end 0))
         (if (equal type "ex")
-            (insert (concat "\\label{ex:" label "}"))
-          (insert (concat "(\\ref{ex:" label "})")))))))
+            (insert "\\label{ex:" label "}")
+          (insert "(\\ref{ex:" label "})"))))))
 
 ;;;###autoload
 (defun numbex-convert-from-latex ()
@@ -603,14 +603,14 @@ Set 'numbex-hidden-labels' to t."
         (goto-char (match-beginning 0))
         (delete-region (match-beginning 0)
                        (match-end 0))
-        (insert (concat "{[ex:" label "]}"))))
+        (insert "{[ex:" label "]}")))
     (goto-char (point-min))
     (while (re-search-forward "(\\\\ref{ex:\\([^\\]*\\)})" nil t)
       (let ((label (match-string-no-properties 2)))
         (goto-char (match-beginning 0))
         (delete-region (match-beginning 0)
                        (match-end 0))
-        (insert (concat "{[rex:" label "]}")))))
+        (insert "{[rex:" label "]}"))))
   (when numbex--automatic-refresh
     (numbex-refresh)))
 
@@ -796,4 +796,3 @@ set the same variable to nil.  Finally, evaluate
 ;; End:
 
 ;;; numbex.el ends here
-
