@@ -118,18 +118,18 @@ as the corresponding example item (in this case,
 ~{[ex:first-example]}~).  Unlabeled ones (like ~{[rex:]}~) receive the
 same number as the example item immediately preceding them.
 
-The special reference items ~pex:~ and ~nex:~ are almost never
-unlabeled.  This is because numbex automatically assigns to them the
-same label as the example that immediately precedes or follows them
+The special reference items ~pex:~ and ~nex:~ are always unlabeled.
+This is because numbex automatically assigns to them the same number
+as the example that immediately precedes or follows them
 (respectively).  If the state of the buffer changes as to which
 example precedes or follows them, their label will change accordingly.
-If you edit a ~pex:~ or ~nex:~ item with ~numbex-do~, it will be
-automatically converted in a regular reference item with the new label
-you selected.  These special items can remain unlabeled only as long
-as there is no example in the buffer that precedes or follows them
-(respectively), in which case ~pex:~ will be numbered as ~(0)~, ~nex:~
-as the same number and example at the very end of the buffer would be
-assigned.
+This is why it would make no sense (and in a way it would be
+confusing) them to have a label: if any label is found, ~numbex~ will
+remove it.  However, if you edit a ~pex:~ or ~nex:~ item with
+~numbex-do~, it will be automatically converted in a regular reference
+item with the new label you selected.  So point is on ~{[pex:]}~,
+selecting /example/ as a label with ~numbex-do~ will replace the item
+with ~{[rex:example]}~.
 
 Assuming that this is the whole buffer:
 
@@ -138,7 +138,7 @@ Assuming that this is the whole buffer:
 {[ex:second-example]} One example.
 {[ex:first-example]} Another example.
 
-If you look at {[rex:second-example]} you will see that {[pex:first-example]}...
+If you look at {[rex:second-example]} you will see that {[pex:]}...
 #+end_example
 
 this is how ~numbex~ will number the items:
@@ -225,7 +225,7 @@ current theme uses to mark comments and warnings (respectively).
 {[ex:first-example]} Another example.
 
 If you look at {[rex:second-example]} you will see that
-{[pex:first-example]} resembles this sentence:
+{[pex:]} resembles this sentence:
 
 {[ex:second-example]} An example.
 #+end_example
