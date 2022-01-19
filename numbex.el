@@ -647,8 +647,8 @@ Set 'numbex-hidden-labels' to t."
                                   numbex--duplicates
                                   "  "))))))
 
-(defvar numbex--buffer-hash nil
-  "Store buffer hash.")
+(defvar-local numbex--buffer-hash nil
+  "Store value of 'buffer-hash' buffer-locally.")
 
 (defun numbex-refresh (&optional no-echo)
   "Scan the buffer and assign numbers.
