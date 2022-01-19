@@ -647,6 +647,9 @@ Set 'numbex-hidden-labels' to t."
                                   numbex--duplicates
                                   "  "))))))
 
+(defvar numbex--buffer-hash nil
+  "Store buffer hash.")
+
 (defun numbex-refresh (&optional no-echo)
   "Scan the buffer and assign numbers.
 If NO-ECHO is non-nil, do not warn about duplicates.  This is to
@@ -659,7 +662,9 @@ be added to 'numbex-mode-hook', 'auto-save-hook' and
     (unless hidden
       (numbex--remove-numbering))
     (unless no-echo
-      (numbex--echo-duplicates))))
+      (numbex--echo-duplicates)))
+  ;; Update the value of numbex--buffer-hash
+  (setq numbex--buffer-hash (buffer-hash)))
 
 (defconst numbex--safe-number-items 1000
   "The largest number of numbex items in a buffer considered safe.
@@ -698,7 +703,14 @@ concerned."
         ;; renumber the items.  Do it only if this wouldn't cripple
         ;; everything.
         (unless (or (> numbex--total-number-of-items numbex--safe-number-items)
-                    (not numbex--automatic-refresh))
+                    (not numbex--automatic-refresh)
+                    ;; If (buffer-hash) is the same as the stored
+                    ;; value, it means the buffer hasn't changed, so
+                    ;; don't do anything!  The value of
+                    ;; 'numbex--buffer-hash' is updated by
+                    ;; 'numbex-refresh'
+                    (equal (buffer-hash)
+                           numbex--buffer-hash))
           ;; Giving t as an argument prevents 'numbex-refresh' to
           ;; annoy the user with messages in the echo area about
           ;; duplicate labels.  They will only be shown if the
