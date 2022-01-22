@@ -2,6 +2,8 @@
 #+author: Enrico Flor
 #+startup: content
 
+[[https://melpa.org/#/numbex][file:https://melpa.org/packages/numbex-badge.svg]]
+
 ~numbex~ is a minor mode for GNU Emacs that helps you manage numbered
 examples and reference to them in your buffer.  It is primarily aimed
 at linguists, whose practice very often involves having example
@@ -40,6 +42,8 @@ and ~numbex-toggle-display~.  The other interactive commands,
 explained below, are ~numbex-search~, ~numbex-refresh~,
 ~numbex-toggle-relative-numbering~, ~numbex-convert-to-latex~,
 ~numbex-convert-from-latex~ and ~numbex-write-out-numbers~.
+
+You can install ~numbex~ via [[https://melpa.org/#/numbex][Melpa]].
 
 ** Basic usage
 
@@ -273,8 +277,8 @@ operation is performed automatically if the current buffer is in
 
 + when ~numbex-mode~ is activated
 + every time Emacs is idle for 0.3 seconds (enough time not to be in
-  the way of your typing)
-+ when the buffer is saved or auto-saved
+  the way of your typing), if the buffer has changed;
++ when the buffer is saved or auto-saved;
 + right after any time one of these functions is evaluated:
   + ~numbex-do~
   + ~numbex-toggle-display~

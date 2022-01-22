@@ -1,6 +1,6 @@
 ;;; numbex.el --- Manage numbered examples -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2021 Enrico Flor
+;; Copyright (C) 2021, 2022 Enrico Flor
 
 ;; Author: Enrico Flor <enrico@eflor.net>
 ;; Maintainer: Enrico Flor <enrico@eflor.net>
@@ -30,33 +30,9 @@
 
 ;; numbex.el provides a minor mode that manages numbered examples.
 ;; Its primary function is to take care for the user of the correct
-;; sequential numbering of example in the buffer.  It also takes care
+;; sequential numbering of examples in the buffer.  It also takes care
 ;; that references to examples are updated with the change in the
-;; numbering.  The way it does so is by defining a class of
-;; expressions, numbex items, which are buffer substrings that match
-;; the following regexp:
-;;
-;;     "{\\[[pnr]?ex:\\([^\]]*\\)\\]}"  -- regexp for numbex items
-;;
-;; That is, the following expressions are all well formed numbex
-;; items:
-;;
-;; - {[ex:]}
-;; - {[ex:label]}
-;; - {[rex:]}
-;; - {[nex:label]}
-;; - {[pex:label]}
-;;
-;; The text between ":" and "]" (that is, capture group 1 in the
-;; regexp above) is the LABEL of the item.  Thust, every well formed
-;; numbex item is made up by a PREFIX ("ex:", "rex:", "nex:" or
-;; "pex:") and a LABEL surrounded by square brackets and curly braces.
-;;
-;; A LABEL can be any string that does not contain backslashes, square
-;; brackets or curly braces.  Numbex converts all blank labels
-;; (strings that only contains white spaces) to the empty label.  The
-;; PREFIX determines the type of item.  The fundamental ones are
-;; "ex:", the EXAMPLE item, and "rex:" the REFERENCE item.
+;; numbering.
 ;;
 ;; For explanation as to how to use numbex, check the readme.org file
 ;; at <https://github.com/enricoflor/numbex>.
