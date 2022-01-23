@@ -196,7 +196,7 @@ once the buffer is widened again."
             (replace-match clean-label t t nil 2)
             (setq numbex--total-number-of-items
                   (1+ numbex--total-number-of-items))
-            ;; If the item is an exmaple, we have to fill up our hash
+            ;; If the item is an example, we have to fill up our hash
             ;; tables and lists, otherwise, we have nothing more to do
             ;; Before doing this, we might need to reset the counter to
             ;; 1 if the buffer was narrowed, we want relative
