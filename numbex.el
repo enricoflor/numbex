@@ -65,7 +65,7 @@ if nil, 'numbex-refresh will be added to 'auto-save-hook' and
 (defcustom numbex-delimiters '("(" . ")")
   "Opening and closing characters used around numbers.
 Set two empty strings if you just want the number."
-  :type 'cons
+  :type '(cons string string)
   :group 'numbex)
 
 (defcustom numbex-highlight-unlabeled t
@@ -86,11 +86,6 @@ specified by 'font-lock-warning-face'."
   :group 'numbex)
 
 (defvar numbex--idle-timer nil)
-
-(defvar numbex--number-re (concat (car numbex-delimiters)
-                                  "[[:digit:]\\?]+"
-                                  (cdr numbex-delimiters))
-  "This regexp matches the displayed number.")
 
 ;; There is some redundancy in some of these regexp but it is done for
 ;; consistency: the first capture group is always the type, the second
@@ -237,7 +232,9 @@ once the buffer is widened again."
                 ;; This will change match data: if there is a number
                 ;; next to the item, it won't end up being included in
                 ;; the line.
-                (looking-at numbex--number-re)
+                (looking-at (concat (car numbex-delimiters)
+                                    "[[:digit:]\\?]+"
+                                    (cdr numbex-delimiters)))
                 (puthash clean-label
                          (buffer-substring-no-properties (match-end 0)
                                                          (line-end-position))
@@ -253,15 +250,21 @@ once the buffer is widened again."
     (setq numbex--existing-labels labels)))
 
 (defun numbex--highlight (lab type b e)
+  "Add face text properties to substring between B and E.
+Do so according to the values of 'numbex-highlight-duplicates'
+and 'numbex-highglight-unlabeled'.  LAB is the label of the item
+and TYPE its type.  This function is called by
+'numbex--remove-numbering' (when evaluated with optional argument
+nil) and by 'numbex--add-numbering'."
   (cond ((and (member lab numbex--duplicates)
               numbex-highlight-duplicates)
          (add-text-properties b e
-                              '(font-lock-face font-lock-warning-face))
+                              '(font-lock-face 'font-lock-warning-face))
          (put-text-property b e 'rear-nonsticky t))
         ((and numbex-highlight-unlabeled
               (equal type "rex")
               (string-blank-p lab))
-         (add-text-properties b e '(font-lock-face font-lock-comment-face))
+         (add-text-properties b e '(font-lock-face 'font-lock-comment-face))
          (put-text-property b e 'rear-nonsticky t))
         (t nil)))
 
@@ -307,7 +310,9 @@ Set 'numbex-hidden-labels' to t."
                                                     (match-end 1)))
               (label (buffer-substring-no-properties (match-beginning 2)
                                                      (match-end 2))))
-          (when (looking-at numbex--number-re)
+          (when (looking-at (concat (car numbex-delimiters)
+                                    "[[:digit:]\\?]+"
+                                    (cdr numbex-delimiters)))
             (delete-region (match-beginning 0)
                            (match-end 0)))
           (set-text-properties b e nil)
