@@ -233,6 +233,11 @@ once the buffer is widened again."
                     (push clean-label duplicates))
                   (push clean-label labels))    ; only non-empty labels matter
                 (puthash clean-label n-string numbex--label-number)
+                (goto-char (match-end 0))
+                ;; This will change match data: if there is a number
+                ;; next to the item, it won't end up being included in
+                ;; the line.
+                (looking-at numbex--number-re)
                 (puthash clean-label
                          (buffer-substring-no-properties (match-end 0)
                                                          (line-end-position))
