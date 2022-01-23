@@ -87,6 +87,11 @@ specified by 'font-lock-warning-face'."
 
 (defvar numbex--idle-timer nil)
 
+(defvar numbex--number-re (concat (car numbex-delimiters)
+                                  "[[:digit:]\\?]+"
+                                  (cdr numbex-delimiters))
+  "This regexp matches the displayed number.")
+
 ;; There is some redundancy in some of these regexp but it is done for
 ;; consistency: the first capture group is always the type, the second
 ;; is always the label of the item.
@@ -242,6 +247,19 @@ once the buffer is widened again."
     (setq numbex--duplicates duplicates)
     (setq numbex--existing-labels labels)))
 
+(defun numbex--highlight (lab type b e)
+  (cond ((and (member lab numbex--duplicates)
+              numbex-highlight-duplicates)
+         (add-text-properties b e
+                              '(font-lock-face font-lock-warning-face))
+         (put-text-property b e 'rear-nonsticky t))
+        ((and numbex-highlight-unlabeled
+              (equal type "rex")
+              (string-blank-p lab))
+         (add-text-properties b e '(font-lock-face font-lock-comment-face))
+         (put-text-property b e 'rear-nonsticky t))
+        (t nil)))
+
 (defun numbex--remove-numbering (&optional no-colors)
   "Remove all numbex text properties from the buffer.
 Set 'numbex--hidden-labels' to nil.  If NO-COLORS is t, don't set
@@ -259,20 +277,7 @@ font-lock-faces."
         (when (or (equal type "ex")
                   (equal type "rex")
                   (not no-colors))
-          (cond ((and (member lab numbex--duplicates)
-                      numbex-highlight-duplicates)
-                 (add-text-properties
-                  b e
-                  '(font-lock-face font-lock-warning-face))
-                 (put-text-property b e 'rear-nonsticky t))
-                ((and numbex-highlight-unlabeled
-                      (equal type "rex")
-                      (string-blank-p lab))
-                 (add-text-properties
-                  b e
-                  '(font-lock-face font-lock-comment-face))
-                 (put-text-property b e 'rear-nonsticky t))
-                (t nil))))))
+          (numbex--highlight lab type b e)))))
   (numbex--toggle-font-lock-keyword)
   (setq numbex--hidden-labels nil))
 
@@ -297,14 +302,17 @@ Set 'numbex-hidden-labels' to t."
                                                     (match-end 1)))
               (label (buffer-substring-no-properties (match-beginning 2)
                                                      (match-end 2))))
+          (when (looking-at numbex--number-re)
+            (delete-region (match-beginning 0)
+                           (match-end 0)))
           (set-text-properties b e nil)
           (cond ((equal type "ex")
                  ;; As number, take the current car of
                  ;; numbex--numbers-list:
                  (let ((num (pop numbex--numbers-list)))
-                   (put-text-property
-                    b e
-                    'display num)
+                   (insert num)
+                   (put-text-property b (point) 'display num)
+                   (numbex--highlight label type b (point))
                    (setq previous-ex-n num)))
                 ;; If the item is {[rex:]}, without a label, give it
                 ;; the number of the closes example.  Otherwise, look
@@ -312,23 +320,31 @@ Set 'numbex-hidden-labels' to t."
                 ;; no key corresponding to the label is found it means
                 ;; that the non-empty label is not being used by any
                 ;; example (yet), so the reference will appear as
-                ;; "(--)":
+                ;; "(??)":
                 ((equal type "rex")
                  (let ((num (if (string-blank-p label)
                                 previous-ex-n
                               (gethash label
                                        numbex--label-number
-                                       "(--)"))))
-                   (put-text-property b e 'display num)))
+                                       (concat (car numbex-delimiters)
+                                               "??"
+                                               (cdr numbex-delimiters))))))
+                   (insert num)
+                   (put-text-property b (point) 'display num)
+                   (numbex--highlight label type b (point))))
                 ((equal type "pex")
                  (replace-match "" t t nil 2)
-                 (put-text-property b e 'display previous-ex-n))
+                 (insert previous-ex-n)
+                 (put-text-property b (point) 'display previous-ex-n))
                 ((equal type "nex")
                  (replace-match "" t t nil 2)
                  (let ((num (if (car numbex--numbers-list)
                                 (car numbex--numbers-list)
-                              "(--)")))
-                   (put-text-property b e 'display num)))))))
+                              (concat (car numbex-delimiters)
+                                      "??"
+                                      (cdr numbex-delimiters)))))
+                   (insert num)
+                   (put-text-property b (point) 'display num)))))))
     (kill-buffer (current-buffer)))
   (numbex--toggle-font-lock-keyword t)
   (setq numbex--hidden-labels t))
@@ -761,6 +777,10 @@ portion of the buffer."
     ;; leaving numbex-mode
     (cancel-timer numbex--idle-timer)
     (setq numbex--idle-timer nil)
+    ;; Evaluate numbex--remove-numbering with the optional argument
+    ;; no-colors non-nil so that there won't be any color left
+    ;; regardless of the value of the variables
+    ;; numbex-highlight-unlabeled and numbex-highlight-duplicates:
     (numbex--remove-numbering t)
     (font-lock-remove-keywords
          nil
