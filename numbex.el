@@ -154,6 +154,22 @@ If t, the numbering restarts at every form-feed character, if the
 buffer is not narrowed, or at the beginning of the narrowing, if
 it is narrowed.)")
 
+(defvar-local numbex--items-list nil
+  "List of all the items or form-feed characters currently in the buffer.
+Updated by 'numbex--scan-buffer'.")
+
+(defun numbex--remove-existing-whitespace (s b e)
+  "If there is whitespace in S, remove it.
+B and E are buffer positions.  If there is no whitespace in S, do
+nothing, otherwise, replace the buffer substring between B and E
+with a string that is S without the whitespace."
+  (save-excursion
+    (let ((new-label (replace-regexp-in-string "[[:space:]]" "" s)))
+      (delete-region b e)
+      (goto-char b)
+      (insert new-label)
+      new-label)))
+
 (defun numbex--scan-buffer ()
   "Collect information relevant for numbex from the buffer.
 Remove all whitespace from items.  Reset the values for the
@@ -172,6 +188,7 @@ once the buffer is widened again."
         (labels '())
         (duplicates '())
         (numbers '())
+        (items '())
         (counter 1))
     (setq numbex--label-line (make-hash-table :test 'equal
                                               :size old-number-labels))
@@ -182,18 +199,23 @@ once the buffer is widened again."
       (widen)
       (goto-char (point-min))
       (while (re-search-forward numbex--item-form-feed-re nil t)
+        (push (match-string-no-properties 0) items)
         (if (equal "" (match-string-no-properties 0))
             ;; We hit a form-feed character: If
             ;; numbex-relative-numbering is t, reset the counter to
             ;; 1, otherwise do nothing
             (when numbex-relative-numbering
               (setq counter 1))
-          ;; We hit an item: first thing we do is remove whitespace.
+          ;; We hit an item: first thing we do is removing whitespace.
           (let ((clean-label
-                 (replace-regexp-in-string "\s" ""
-                                           (match-string-no-properties 2)))
+                 (if (string-match "[[:space:]]"
+                                   (match-string-no-properties 2)
+                                   nil t)
+                     (numbex--remove-existing-whitespace
+                      (match-string-no-properties 2)
+                      (match-beginning 2) (match-end 2))
+                   (match-string-no-properties 2)))
                 (type (match-string-no-properties 1)))
-            (replace-match clean-label t t nil 2)
             (setq numbex--total-number-of-items
                   (1+ numbex--total-number-of-items))
             ;; If the item is an example, we have to fill up our hash
@@ -247,7 +269,8 @@ once the buffer is widened again."
     ;; the loop.
     (setq numbex--numbers-list (nreverse numbers))
     (setq numbex--duplicates duplicates)
-    (setq numbex--existing-labels labels)))
+    (setq numbex--existing-labels labels)
+    (setq numbex--items-list items)))
 
 (defun numbex--highlight (lab type b e)
   "Add face text properties to substring between B and E.
@@ -668,13 +691,18 @@ If NO-ECHO is non-nil, do not warn about duplicates.  This is to
 be added to 'numbex-mode-hook', 'auto-save-hook' and
 'before-save-hook'."
   (interactive)
-  (let ((hidden numbex--hidden-labels))
+  (let ((hidden numbex--hidden-labels)
+        (old-items-list numbex--items-list))
     (numbex--scan-buffer)
-    (numbex--add-numbering)
-    (unless hidden
-      (numbex--remove-numbering))
-    (unless no-echo
-      (numbex--echo-duplicates)))
+    ;; Now 'numbex--items-list' has been updated: do nothing if the
+    ;; new value is the same as the old one.
+    (unless (equal old-items-list
+                   numbex--items-list)
+      (numbex--add-numbering)
+      (unless hidden
+        (numbex--remove-numbering))
+      (unless no-echo
+        (numbex--echo-duplicates))))
   ;; Update the value of numbex--buffer-hash
   (setq numbex--buffer-hash (buffer-hash)))
 
