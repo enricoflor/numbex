@@ -90,9 +90,9 @@ specified by 'font-lock-warning-face'."
 ;; There is some redundancy in some of these regexp but it is done for
 ;; consistency: the first capture group is always the type, the second
 ;; is always the label of the item.
-(defvar numbex--item-re "{\\[\\([pnr]?ex\\):\\([^\]]*\\)\\]}")
-(defvar numbex--example-re "{\\[\\(ex\\):\\([^\]]*\\)\\]}")
-(defvar numbex--reference-re "{\\[\\([pnr]+ex\\):\\([^\]]*\\)\\]}")
+(defvar numbex--item-re "{\\[\\([pnr]?ex\\):\\(.*?\\)\\]}")
+(defvar numbex--example-re "{\\[\\(ex\\):\\(.*?\\)\\]}")
+(defvar numbex--reference-re "{\\[\\([pnr]+ex\\):\\(.*?\\)\\]}")
 
 (defun numbex--item-at-point ()
   "Return position of the label of the item point is on and its type.
@@ -120,7 +120,7 @@ Thus, when point is on an item:
           nil)))))
 
 ;; This regexp matches either an item of a form-feed character
-(defvar numbex--item-form-feed-re "{\\[\\([pnr]?ex\\):\\([^\]]*\\)\\]}\\|")
+(defvar numbex--item-form-feed-re "{\\[\\([pnr]?ex\\):\\(.*?\\)\\]}\\|")
 
 ;; These are the hash tables and list that are reset at every
 ;; evaluation of 'numbex--scan-buffer': they contain all the
@@ -785,11 +785,11 @@ portion of the buffer."
   (if add
       (font-lock-add-keywords
        nil
-       '(("{\\[[pnr]?ex:\\([^\]]*\\)\\]}"
+       '(("{\\[[pnr]?ex:\\(.*?\\)\\]}"
           0 '(face nil invisible t) append)))
     (font-lock-remove-keywords
      nil
-     '(("{\\[[pnr]?ex:\\([^\]]*\\)\\]}"
+     '(("{\\[[pnr]?ex:\\(.*?\\)\\]}"
         0 '(face nil invisible t) append))))
   (save-excursion (font-lock-fontify-region (point-min) (point-max))))
 
@@ -811,7 +811,7 @@ portion of the buffer."
           (font-lock-mode 1))
         (font-lock-add-keywords
          nil
-         '(("{\\[[pnr]?ex:\\([^\]]*\\)\\]}"
+         '(("{\\[[pnr]?ex:\\(.*?\\)\\]}"
             0 '(face nil invisible t) append)))
         (save-excursion (font-lock-fontify-region (point-min) (point-max)))
         (numbex--count-and-ask)
@@ -832,7 +832,7 @@ portion of the buffer."
     (numbex--remove-numbering t)
     (font-lock-remove-keywords
          nil
-         '(("{\\[[pnr]?ex:\\([^\]]*\\)\\]}"
+         '(("{\\[[pnr]?ex:\\(.*?\\)\\]}"
             0 '(face nil invisible t) append)))
     (save-excursion (font-lock-fontify-region (point-min) (point-max)))
     (remove-hook 'auto-save-hook #'numbex-refresh t)
