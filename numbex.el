@@ -411,13 +411,11 @@ Set 'numbex-hidden-labels' to t."
            (type (cdr item))
            (new-label
             (if (equal type "ex")
-                (replace-regexp-in-string
-                 "\\[\\|\\]" ""
-                 (read-string (format
-                               "New label [default \"%s\"]: "
-                               old-label)
-                              old-label nil
-                              old-label t))
+                (read-string (format
+                              "New label [default \"%s\"]: "
+                              old-label)
+                             old-label nil
+                             old-label t)
               ;; If the item is a reference, provide completion with
               ;; the existing labels.
               (car (list
@@ -464,10 +462,9 @@ Set 'numbex-hidden-labels' to t."
 (defun numbex--example ()
   "Insert a new example item."
   (let ((label
-         (replace-regexp-in-string "\\[\\|\\]" ""
-                                   (read-string "Label: "
-                                                nil nil
-                                                nil t))))
+         (read-string "Label: "
+                      nil nil
+                      nil t)))
     (if (member label numbex--existing-labels)
         (if (yes-or-no-p (format
                           "\"%s\" is already a label, are you sure?"
