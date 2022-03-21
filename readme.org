@@ -228,7 +228,7 @@ current theme uses to mark comments and warnings (respectively).
 {[ex:first-example]} Another example.
 
 If you look at {[rex:second-example]} you will see that
-{[pex:]} resembles this sentence:
+{[pex:]} and {[rex:]} resemble this sentence:
 
 {[ex:second-example]} An example.
 #+end_example
