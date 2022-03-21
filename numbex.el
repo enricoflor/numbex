@@ -85,6 +85,15 @@ specified by 'font-lock-warning-face'."
   :type 'boolean
   :group 'numbex)
 
+(defcustom numbex-relative-numbering t
+  "If t, the numbering restart from (1) at each page by default.
+Pages are marked by the form-feed character.  The value of this
+variable is the initial value of the buffer-local
+'numbex--relative', whose value can be toggled interactively with
+'numbex-toggle-relative-numbering'."
+  :type 'boolean
+  :group 'numbex)
+
 (defvar numbex--idle-timer nil)
 
 ;; There is some redundancy in some of these regexp but it is done for
@@ -143,16 +152,17 @@ Thus, when point is on an item:
 ;; ("1" "2" "3" "1" "2")
 
 ;; When 'numbex--add-numbering' is evaluated, if
-;; 'numbex--relative-numbering' is t, the examples will be numbered in
+;; 'numbex--relative' is t, the examples will be numbered in
 ;; loop by popping values out of this list.
 (defvar-local numbex--numbers-list nil
   "A list of strings with to the relative numbering in the buffer.")
 
-(defvar-local numbex-relative-numbering nil
+(defvar-local numbex--relative nil
   "If nil, the numbering doesn't restart ever.
 If t, the numbering restarts at every form-feed character, if the
 buffer is not narrowed, or at the beginning of the narrowing, if
-it is narrowed.)")
+it is narrowed.  The initial value of this variable is set as the
+same as 'numbex-relative-numbering'.")
 
 (defvar-local numbex--items-list nil
   "List of all the items or form-feed characters currently in the buffer.
@@ -201,10 +211,9 @@ once the buffer is widened again."
       (while (re-search-forward numbex--item-form-feed-re nil t)
         (push (match-string-no-properties 0) items)
         (if (equal "" (match-string-no-properties 0))
-            ;; We hit a form-feed character: If
-            ;; numbex-relative-numbering is t, reset the counter to
-            ;; 1, otherwise do nothing
-            (when numbex-relative-numbering
+            ;; We hit a form-feed character: If numbex--relative is t,
+            ;; reset the counter to 1, otherwise do nothing
+            (when numbex--relative
               (setq counter 1))
           ;; We hit an item: first thing we do is removing whitespace.
           (let ((clean-label
@@ -229,7 +238,7 @@ once the buffer is widened again."
             ;; won't reset again at the next match.
             (when (equal type "ex")
               (when (and (not point-in-narrowing)
-                         numbex-relative-numbering
+                         numbex--relative
                          narrowed
                          (> (point) start-of-buffer))
                 (setq point-in-narrowing t)
@@ -317,7 +326,7 @@ font-lock-faces."
 Set 'numbex-hidden-labels' to t."
   (setq numbex--total-number-of-items 0)
   ;; First, let's number the examples.  If the buffer is narrowed
-  ;; and 'numbex-relative-numbering' is t, we just need to number
+  ;; and 'numbex--relative' is t, we just need to number
   ;; the examples in the buffer.
   (with-current-buffer (clone-indirect-buffer nil nil t)
     (widen)
@@ -383,13 +392,13 @@ Set 'numbex-hidden-labels' to t."
   (setq numbex--hidden-labels t))
 
 (defun numbex-toggle-relative-numbering ()
-  "Toggle value of 'numbex-relative-numbering' (buffer-local)."
+  "Toggle value of 'numbex--relative' (buffer-local)."
   (interactive)
-  (if numbex-relative-numbering
+  (if numbex--relative
       (progn
-        (setq numbex-relative-numbering nil)
+        (setq numbex--relative nil)
         (message "Relative numbering deactivated"))
-    (setq numbex-relative-numbering t)
+    (setq numbex--relative t)
     (message "Relative numbering activated")))
 
 ;;;###autoload
@@ -819,6 +828,7 @@ portion of the buffer."
         ;; have the default size of 65
         (setq numbex--label-line (make-hash-table :test 'equal))
         (setq numbex--label-number (make-hash-table :test 'equal))
+        (setq numbex--relative numbex-relative-numbering)
         (numbex-refresh)
         (add-hook 'auto-save-hook #'numbex-refresh nil t)
         (add-hook 'before-save-hook #'numbex-refresh nil t))

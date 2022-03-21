@@ -25,21 +25,21 @@ examples above, or that you want to add another example before them.
 To keep things tidy and unambiguous you'd have to change the number of
 every other example, and also the number of every reference!  If you
 make a mistake or you forget anything, you will end up with a mess and
-there is no way to know, from the numbers alone what refers to what.
+there is no way to know what refers to what from the numbers alone.
 ~numbex-mode~ takes care of all this for you.
 
-~numbex~ should work in any major mode, and in particular it should
-not conflict with the default behavior of ~org-mode~.  The fundamental
-idea behind ~numbex~ is that the buffer text proper doesn't contain
-any numbering itself, but only *numbex items* (that is, labeled
-expressions with a certain form): the numbering is added to the buffer
-as text properties.  The command ~numbex-toggle-display~ switches the
-buffer back and forth from a state with and without the numbering.
+~numbex~ should work in any major mode, and in particular it should not
+conflict with the default behavior of ~org-mode~.  The fundamental idea
+behind ~numbex~ is that the buffer text proper doesn't contain any
+numbering itself, but only *numbex items* (that is, portions of buffer
+content  a certain form): the numbering is added to the buffer as text
+properties.  The command ~numbex-toggle-display~ switches the buffer
+back and forth from a state with and without the numbering.
 
 There are no preset default keybindings, but it is a good idea to
 define some for the two most common interactive commands: ~numbex-do~
-and ~numbex-toggle-display~.  The other interactive commands,
-explained below, are ~numbex-search~, ~numbex-refresh~,
+and ~numbex-toggle-display~.  The other interactive commands, explained
+below, are ~numbex-search~, ~numbex-refresh~,
 ~numbex-toggle-relative-numbering~, ~numbex-convert-to-latex~,
 ~numbex-convert-from-latex~ and ~numbex-write-out-numbers~.
 
@@ -54,32 +54,30 @@ determines the kind of item:
 |--------+--------------------------------------------|
 | Prefix | Type of item                               |
 |--------+--------------------------------------------|
-| ~ex:~  | Example (introduces a new label)           |
-| ~rex:~ | Reference to an example                    |
-| ~pex:~ | Reference to immediately preceding example |
-| ~nex:~ | Reference to immediately following example |
+| ~ex:~    | Example (introduces a new label)           |
+| ~rex:~   | Reference to an example                    |
+| ~pex:~   | Reference to immediately preceding example |
+| ~nex:~   | Reference to immediately following example |
 |--------+--------------------------------------------|
 
 The *label* is the substring after the prefix in the item.  So for
-instance ~{[ex:first]}~ is an example item whose label is ~first~.
-Items can be unlabeled: ~{[ex:]}~.  There cannot be whitespace
-characters inside an item: if you add any, they will be automatically
-removed.  (This is to make sure that an item never ends up broken in
-different lines, which would cause numbex not to recognize the item
-anymore.)
+instance ~{[ex:first]}~ is an example item whose label is ~first~.  Items
+can be unlabeled: ~{[ex:]}~.  There cannot be whitespace characters
+inside an item: if you add any, they will be automatically removed.
+(This is to make sure that an item never ends up broken in different
+lines, which would cause numbex not to recognize the item anymore.)
 
 While you can manipulate these items yourself (either manually or
 programmatically), it is much more convenient to use the command
 ~numbex-do~ (more on this below).
 
-
 *** Numbering of examples
 
-How examples are numbered depends on the value of the buffer-local
-variable ~numbex-relative-numbering~ (by default ~nil~).  The value of
-this variable can be toggled interactively with the command
+How examples are numbered when ~numbex-mode~ is first activated depends
+on the value of the variable ~numbex-relative-numbering~ (by default ~t~).
+The mode of numbering can be switched between absolute and relative
+interactively and buffer-locally with the function
 ~numbex-toggle-relative-numbering~.
-
 **** Absolute numbering
 
 If ~numbex-relative-numbering~ is ~nil~, examples, whether labeled or
@@ -122,18 +120,19 @@ as the corresponding example item (in this case,
 ~{[ex:first-example]}~).  Unlabeled ones (like ~{[rex:]}~) receive the
 same number as the example item immediately preceding them.
 
-The special reference items ~pex:~ and ~nex:~ are always unlabeled.
+The special reference items ~pex:~ and ~nex:~, automatically receive an
+uninformative label corresponding to the number they are assigned.
 This is because numbex automatically assigns to them the same number
 as the example that immediately precedes or follows them
 (respectively).  If the state of the buffer changes as to which
 example precedes or follows them, their label will change accordingly.
 This is why it would make no sense (and in a way it would be
 confusing) them to have a label: if any label is found, ~numbex~ will
-remove it.  However, if you edit a ~pex:~ or ~nex:~ item with
-~numbex-do~, it will be automatically converted in a regular reference
-item with the new label you selected.  So point is on ~{[pex:]}~,
-selecting /example/ as a label with ~numbex-do~ will replace the item
-with ~{[rex:example]}~.
+remove it.  However, if you edit a ~pex:~ or ~nex:~ item with ~numbex-do~,
+it will be automatically converted in a regular reference item with
+the new label you selected.  So point is on ~{[pex:]}~, selecting
+/example/ as a label with ~numbex-do~ will replace the item with
+~{[rex:example]}~.
 
 Assuming that this is the whole buffer:
 
@@ -235,7 +234,8 @@ If you look at {[rex:second-example]} you will see that
 #+end_example
 
 #+CAPTION: Highlighting of problematic items.
-[[./screenshots/numbex-highlighting.png]]
+[[./screenshots/numbex-highlighting-01.png]]
+[[./screenshots/numbex-highlighting-02.png]]
 
 If you want to change this default behavior, set the variables
 ~numbex-highlight-unlabeled~ and/or ~numbex-highlight-duplicates~ to
