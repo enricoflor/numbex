@@ -412,7 +412,7 @@ Set 'numbex-hidden-labels' to t."
     (numbex--add-numbering)))
 
 (defun numbex--edit (item)
-  "With ITEM being the output of 'numbex--item-at-point, insert new label."
+  "With ITEM the output of 'numbex--item-at-point', change label."
   (save-excursion
     (let* ((old-label
             (buffer-substring-no-properties (car (car item))
@@ -451,15 +451,12 @@ Set 'numbex-hidden-labels' to t."
         (insert new-label))
       (when (and (equal type "ex") novel)
         (let ((rename (yes-or-no-p
-                       "Relabel all corresponding references?"))
-              (target (concat "{[rex:" old-label "]}"))
-              (rep (concat "{[rex:" new-label "]}")))
+                       "Relabel all associated references?"))
+              (target (concat "{\\[[r]?ex:\\(" old-label "\\)\\]}")))
           (when rename
             (goto-char (point-min))
-            (while (search-forward target nil t)
-              (delete-region (match-beginning 0)
-                             (match-end 0))
-              (insert rep)))))
+            (while (search-forward-regexp target nil t)
+              (replace-match new-label t t nil 1)))))
       ;; If item at point is nex: or pex:, make it into a rex:,
       ;; otherwise the new label will be wiped out automatically.  It
       ;; does not make sense to edit pex: and nex: items manually.
