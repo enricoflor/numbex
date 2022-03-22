@@ -168,16 +168,18 @@ same as 'numbex-relative-numbering'.")
   "List of all the items or form-feed characters currently in the buffer.
 Updated by 'numbex--scan-buffer'.")
 
-(defun numbex--remove-existing-whitespace (s b e)
+(defun numbex--remove-existing-whitespace (s &optional b e)
   "If there is whitespace in S, remove it.
-B and E are buffer positions.  If there is no whitespace in S, do
-nothing, otherwise, replace the buffer substring between B and E
-with a string that is S without the whitespace."
+If B and E are nil, just return a string.  B and E are buffer
+positions.  If there is no whitespace in S, do nothing,
+otherwise, replace the buffer substring between B and E with a
+string that is S without the whitespace."
   (save-excursion
     (let ((new-label (replace-regexp-in-string "[[:space:]]" "" s)))
-      (delete-region b e)
-      (goto-char b)
-      (insert new-label)
+      (when b
+        (delete-region b e)
+        (goto-char b)
+        (insert new-label))
       new-label)))
 
 (defun numbex--scan-buffer ()
@@ -420,11 +422,12 @@ Set 'numbex-hidden-labels' to t."
            (type (cdr item))
            (new-label
             (if (equal type "ex")
-                (read-string (format
-                              "New label [default \"%s\"]: "
-                              old-label)
-                             old-label nil
-                             old-label t)
+                (numbex--remove-existing-whitespace
+                 (read-string (format
+                               "New label [default \"%s\"]: "
+                               old-label)
+                              old-label nil
+                              old-label t))
               ;; If the item is a reference, provide completion with
               ;; the existing labels.
               (car (list
@@ -467,17 +470,18 @@ Set 'numbex-hidden-labels' to t."
 
 (defun numbex--example ()
   "Insert a new example item."
-  (let ((label
-         (read-string "Label: "
-                      nil nil
-                      nil t)))
-    (if (member label numbex--existing-labels)
+  (let* ((label
+          (read-string "Label: "
+                       nil nil
+                       nil t))
+         (sanitized-label (numbex--remove-existing-whitespace label)))
+    (if (member sanitized-label numbex--existing-labels)
         (if (yes-or-no-p (format
                           "\"%s\" is already a label, are you sure?"
-                          label))
-            (insert "{[ex:" label "]}")
+                          sanitized-label))
+            (insert "{[ex:" sanitized-label "]}")
           (numbex--example))
-      (insert "{[ex:" label "]}"))))
+      (insert "{[ex:" sanitized-label "]}"))))
 
 (defun numbex--reference ()
   "Insert a new reference item."
