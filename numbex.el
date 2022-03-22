@@ -400,6 +400,18 @@ Set 'numbex-hidden-labels' to t."
       (numbex--remove-numbering)
     (numbex--add-numbering)))
 
+(defun numbex--uniquify-string (s l)
+  "Return modified S such that it is not a member of list L.
+The suffix to be added is \"-NN\", where N is a digit."
+  (let ((counter 1)
+        (label s))
+    (while (member label l)
+      (let ((suffix (concat "--"
+                            (format "%s" counter))))
+        (setq label (concat s suffix))
+        (setq counter (1+ counter))))
+    label))
+
 (defun numbex--edit (item)
   "With ITEM the output of 'numbex--item-at-point', change label."
   (save-excursion
@@ -434,7 +446,10 @@ Set 'numbex-hidden-labels' to t."
             (goto-char (car (car item)))
             (delete-region (car (car item))
                            (cdr (car item)))
-            (insert new-label))
+            (if (yes-or-no-p "Uniquify the label?")
+                (insert (numbex--uniquify-string new-label
+                                                 numbex--existing-labels))
+              (insert new-label)))
         (goto-char (car (car item)))
         (delete-region (car (car item))
                        (cdr (car item)))
@@ -465,7 +480,11 @@ Set 'numbex-hidden-labels' to t."
         (if (yes-or-no-p (format
                           "\"%s\" is already a label, are you sure?"
                           sanitized-label))
-            (insert "{[ex:" sanitized-label "]}")
+            (if (yes-or-no-p "Uniquify the label?")
+                (insert "{[ex:" (numbex--uniquify-string
+                                 sanitized-label numbex--existing-labels)
+                        "]}")
+              (insert "{[ex:" sanitized-label "]}"))
           (numbex--example))
       (insert "{[ex:" sanitized-label "]}"))))
 
