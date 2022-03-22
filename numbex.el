@@ -133,7 +133,8 @@ Thus, when point is on an item:
 
 ;; These are the hash tables and list that are reset at every
 ;; evaluation of 'numbex--scan-buffer': they contain all the
-;; information pertinent to the numbering and the referencing of examples.
+;; information pertinent to the numbering and the referencing of
+;; examples.
 (defvar-local numbex--label-number nil
   "Hash table mapping labels of examples to the number assigned.")
 
@@ -148,12 +149,12 @@ Thus, when point is on an item:
 
 ;; An example is the best way to explain what this variable is for.
 ;; Suppose there are five examples in the buffer: three in the first
-;; page, two in the second.  The value of this variable will be:
-;; ("1" "2" "3" "1" "2")
+;; page, two in the second.  The value of this variable will be: ("1"
+;; "2" "3" "1" "2")
 
-;; When 'numbex--add-numbering' is evaluated, if
-;; 'numbex--relative' is t, the examples will be numbered in
-;; loop by popping values out of this list.
+;; When 'numbex--add-numbering' is evaluated, if 'numbex--relative' is
+;; t, the examples will be numbered in loop by popping values out of
+;; this list.
 (defvar-local numbex--numbers-list nil
   "A list of strings with to the relative numbering in the buffer.")
 
@@ -218,13 +219,13 @@ once the buffer is widened again."
                   (1+ numbex--total-number-of-items))
             ;; If the item is an example, we have to fill up our hash
             ;; tables and lists, otherwise, we have nothing more to do
-            ;; Before doing this, we might need to reset the counter to
-            ;; 1 if the buffer was narrowed, we want relative
+            ;; Before doing this, we might need to reset the counter
+            ;; to 1 if the buffer was narrowed, we want relative
             ;; numbering, and the point now is after the original
             ;; (point-min), that is, it has entered the narrowed
             ;; portion of the buffer.  If all this is the case, reset
-            ;; the counter and set 'point-in-narrowing' to t so that it
-            ;; won't reset again at the next match.
+            ;; the counter and set 'point-in-narrowing' to t so that
+            ;; it won't reset again at the next match.
             (when (equal type "ex")
               (when (and (not point-in-narrowing)
                          numbex--relative
@@ -233,9 +234,9 @@ once the buffer is widened again."
                 (setq point-in-narrowing t)
                 (setq counter 1))
               ;; For convenience, let's store strings of the form
-              ;; "(1)" instead of numbers like 1 in the lists, so
-              ;; we won't have to bother convert it later when
-              ;; it's time to put them as display text properties.
+              ;; "(1)" instead of numbers like 1 in the lists, so we
+              ;; won't have to bother convert it later when it's time
+              ;; to put them as display text properties.
               (let ((n-string (concat (car numbex-delimiters)
                                       (number-to-string counter)
                                       (cdr numbex-delimiters))))
@@ -314,9 +315,9 @@ font-lock-faces."
   "Number items in the buffer as text properties.
 Set 'numbex-hidden-labels' to t."
   (setq numbex--total-number-of-items 0)
-  ;; First, let's number the examples.  If the buffer is narrowed
-  ;; and 'numbex--relative' is t, we just need to number
-  ;; the examples in the buffer.
+  ;; First, let's number the examples.  If the buffer is narrowed and
+  ;; 'numbex--relative' is t, we just need to number the examples in
+  ;; the buffer.
   (with-current-buffer (clone-indirect-buffer nil nil t)
     (widen)
     (goto-char (point-min))
@@ -440,16 +441,21 @@ The suffix to be added is \"-NN\", where N is a digit."
       (if (and (equal type "ex")
                (not novel)
                (not (equal new-label old-label)))
-          (if (not (yes-or-no-p (concat new-label
-                                        " is already a label, are you sure?")))
-              (numbex--edit item)
-            (goto-char (car (car item)))
-            (delete-region (car (car item))
-                           (cdr (car item)))
-            (if (yes-or-no-p "Uniquify the label?")
+          (let ((what-to-do (read-multiple-choice
+                             (concat new-label
+                                     " is already a label, are you sure?")
+                             '((?y "yes")
+                               (?n "no")
+                               (?! "make label unique")))))
+            (if (equal what-to-do '(?n "no"))
+                (numbex--edit item)
+              (goto-char (car (car item)))
+              (delete-region (car (car item))
+                             (cdr (car item)))
+              (if (equal what-to-do '(?y "yes"))
+                  (insert new-label)
                 (insert (numbex--uniquify-string new-label
-                                                 numbex--existing-labels))
-              (insert new-label)))
+                                                 numbex--existing-labels)))))
         (goto-char (car (car item)))
         (delete-region (car (car item))
                        (cdr (car item)))
@@ -477,15 +483,19 @@ The suffix to be added is \"-NN\", where N is a digit."
                              nil t))
          (sanitized-label (replace-regexp-in-string "[[:space:]]" "" label)))
     (if (member sanitized-label numbex--existing-labels)
-        (if (yes-or-no-p (format
-                          "\"%s\" is already a label, are you sure?"
-                          sanitized-label))
-            (if (yes-or-no-p "Uniquify the label?")
+        (let ((what-to-do (read-multiple-choice
+                           (concat sanitized-label
+                                   " is already a label, are you sure?")
+                             '((?y "yes")
+                               (?n "no")
+                               (?! "make label unique")))))
+            (if (equal what-to-do '(?n "no"))
+                (numbex--example)
+              (if (equal what-to-do '(?y "yes"))
+                  (insert "{[ex:" sanitized-label "]}")
                 (insert "{[ex:" (numbex--uniquify-string
                                  sanitized-label numbex--existing-labels)
-                        "]}")
-              (insert "{[ex:" sanitized-label "]}"))
-          (numbex--example))
+                        "]}"))))
       (insert "{[ex:" sanitized-label "]}"))))
 
 (defun numbex--reference ()
