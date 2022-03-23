@@ -169,6 +169,9 @@ same as 'numbex-relative-numbering'.")
   "List of all the items or form-feed characters currently in the buffer.
 Updated by 'numbex--scan-buffer'.")
 
+(defvar-local numbex--annotation-alist '()
+  "Alist mapping labels to strings of number and context.")
+
 (defun numbex--scan-buffer ()
   "Collect information relevant for numbex from the buffer.
 Remove all whitespace from items.  Reset the values for the
@@ -188,6 +191,7 @@ once the buffer is widened again."
         (duplicates '())
         (numbers '())
         (items '())
+        (annotation '())
         (counter 1))
     (setq numbex--label-line (make-hash-table :test 'equal
                                               :size old-number-labels))
@@ -259,7 +263,15 @@ once the buffer is widened again."
                 (puthash clean-label
                          (buffer-substring-no-properties (match-end 0)
                                                          (line-end-position))
-                         numbex--label-line))
+                         numbex--label-line)
+                (push
+                 (cons clean-label
+                       (concat n-string
+                               " "
+                               (buffer-substring-no-properties
+                                (match-end 0)
+                                (line-end-position))))
+                 annotation))
               ;; Before the next iteration, increment both counters
               (setq counter (1+ counter))))))
       (kill-buffer (current-buffer)))
@@ -269,7 +281,8 @@ once the buffer is widened again."
     (setq numbex--numbers-list (nreverse numbers))
     (setq numbex--duplicates duplicates)
     (setq numbex--existing-labels labels)
-    (setq numbex--items-list items)))
+    (setq numbex--items-list items)
+    (setq numbex--annotation-alist annotation)))
 
 (defun numbex--highlight (lab type b e)
   "Add face text properties to substring between B and E.
@@ -430,6 +443,12 @@ Allow the user to return a uniquified string by calling
           ((equal choice '(?! "make label unique"))
            (numbex--uniquify-string label numbex--existing-labels)))))
 
+(defun numbex--annotation-function (label)
+  "Return string mapped to LABEL in 'numbex--annotation-alist'."
+  (let ((candidate (cdr (assoc label minibuffer-completion-table))))
+    (when candidate
+      (concat "  -- " candidate))))
+
 (defun numbex--edit (item)
   "With ITEM the output of 'numbex--item-at-point', change label."
   (save-excursion
@@ -447,13 +466,14 @@ Allow the user to return a uniquified string by calling
                               old-label t))
               ;; If the item is a reference, provide completion with
               ;; the existing labels.
-              (car (list
-                 (completing-read
-                  (format "Label [default \"%s\"]: " old-label)
-                  numbex--existing-labels
-                  nil nil
-                  old-label nil
-                  old-label t)))))
+              (let ((completion-extra-properties
+                     '(:annotation-function numbex--annotation-function)))
+                (completing-read
+                 (format "Label [default \"%s\"]: " old-label)
+                 numbex--annotation-alist
+                 nil nil
+                 old-label nil
+                 old-label t))))
            (novel (not (member new-label numbex--existing-labels))))
       (if (and (equal type "ex")
                (not novel)
@@ -502,13 +522,10 @@ Allow the user to return a uniquified string by calling
   "Insert a new reference item."
   (insert
    "{[rex:"
-   (car (list
-         (completing-read
-          "Label [default empty]: "
-          numbex--existing-labels
-          nil nil
-          nil nil
-          "" t)))
+   (let ((completion-extra-properties
+          '(:annotation-function numbex--annotation-function)))
+     (completing-read "Label: "
+                      numbex--annotation-alist))
    "]}"))
 
 (defun numbex--new ()
@@ -721,8 +738,8 @@ be added to 'numbex-mode-hook', 'auto-save-hook' and
     (numbex--scan-buffer)
     ;; Now 'numbex--items-list' has been updated: do nothing if the
     ;; new value is the same as the old one.
-    (unless (equal old-items-list
-                   numbex--items-list)
+    (unless (= (sxhash-equal old-items-list)
+               (sxhash-equal numbex--items-list))
       (numbex--add-numbering)
       (unless hidden
         (numbex--remove-numbering))
