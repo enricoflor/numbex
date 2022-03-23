@@ -32,7 +32,7 @@ there is no way to know what refers to what from the numbers alone.
 conflict with the default behavior of ~org-mode~.  The fundamental idea
 behind ~numbex~ is that the buffer text proper doesn't contain any
 numbering itself, but only *numbex items* (that is, portions of buffer
-content  a certain form): the numbering is added to the buffer as text
+content a certain form): the numbering is added to the buffer as text
 properties.  The command ~numbex-toggle-display~ switches the buffer
 back and forth from a state with and without the numbering.
 
@@ -168,27 +168,52 @@ of which item to create:
 [[./screenshots/numbex-do-1.png]]
 
 If you choose to create a reference, you will be offered completion
-with the labels that are already being used in the buffer:
+with the labels that are already being used in the buffer, annotated
+with the context around the examples (the buffer content between the
+item and the end of the line where the item is).
 
-[[./screenshots/numbex-do-select-label.png]]
+#+begin_example
+{[ex:]} Odd example
+{[ex:second-example]} One example.
+{[ex:first-example]} Another example.
+
+{[ex:third]} Last example
+
+If you look at {[rex:second-example]} you will see that
+{[pex:]} and {[rex:]} resemble this sentence:
+#+end_example
+
+[[./screenshots/numbex-do-select-label-annotation.png]]
+
+There is a caveat here: if there are two example items labeled with
+~xyz~ in the buffer, only the first one will show up in the completion
+selection involved in creating or editing a reference item.
 
 If creating an example, if you choose a label that is already being
 used you will be asked to confirm your choice:
 
 [[./screenshots/numbex-do-confirm.png]]
 
-Evaluating ~numbex-do~ while point is on an item (regardless of
-whether labels are currently displayed or not) lets you change the
-label of the item.  Again, if it's a reference, you will be able to
-use completion on the existing labels, and if you try to duplicate a
-label on an example you will have to confirm.  If you are editing
-~pex:~ or ~nex:~ items, they will be automatically converted in
-regular references.  Finally, if you edit an example by providing a
-novel label, you will be asked whether you want to update the label of
-all the items that reference that example automatically.
+Evaluating ~numbex-do~ while point is on an item (regardless of whether
+labels are currently displayed or not) lets you change the label of
+the item.  Again, if it's a reference, you will be able to use
+completion on the existing labels (with annotation, showing you the
+content of the examples).  If you are editing ~pex:~ or ~nex:~ items, they
+will be automatically converted in regular references.  Finally, if
+you edit an example by providing a novel label, you will be asked
+whether you want to update the label of all the items that reference
+that example automatically.
 
 [[./screenshots/numbex-do-change-label.png]]
 
+~numbex~ really tries its best to make sure you use unique labels.  If,
+in editing or creating a new example, you try to give it a label that
+is not unique, you will be warned and asked whether you want to enter
+a different one, stick with the non unique one (although that would be
+a bad idea) or let ~numbex~ make the label you wish unique by
+automatically adding a numerical suffix.
+
+[[./screenshots/numbex-uniquify.png]]
 
 ** Other conveniences
 
