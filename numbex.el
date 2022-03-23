@@ -413,6 +413,23 @@ The suffix to be added is \"-NN\", where N is a digit."
         (setq counter (1+ counter))))
     label))
 
+(defun numbex--prompt-with-duplicate-label (label)
+  "Choose what to do if LABEL is in 'numbex--existing-labels'.
+Allow the user to return a uniquified string by calling
+'numbex--uniquify-string' on LABEL."
+  (let ((choice (read-multiple-choice
+                 (concat label
+                         " is used already, are you sure?")
+                 '((?y "yes")
+                   (?n "no")
+                   (?! "make label unique")))))
+    (cond ((equal choice '(?y "yes"))
+           label)
+          ((equal choice '(?n "no"))
+           nil)
+          ((equal choice '(?! "make label unique"))
+           (numbex--uniquify-string label numbex--existing-labels)))))
+
 (defun numbex--edit (item)
   "With ITEM the output of 'numbex--item-at-point', change label."
   (save-excursion
@@ -441,21 +458,13 @@ The suffix to be added is \"-NN\", where N is a digit."
       (if (and (equal type "ex")
                (not novel)
                (not (equal new-label old-label)))
-          (let ((what-to-do (read-multiple-choice
-                             (concat new-label
-                                     " is already a label, are you sure?")
-                             '((?y "yes")
-                               (?n "no")
-                               (?! "make label unique")))))
-            (if (equal what-to-do '(?n "no"))
+          (let ((reaction (numbex--prompt-with-duplicate-label new-label)))
+            (if (not reaction)
                 (numbex--edit item)
               (goto-char (car (car item)))
               (delete-region (car (car item))
                              (cdr (car item)))
-              (if (equal what-to-do '(?y "yes"))
-                  (insert new-label)
-                (insert (numbex--uniquify-string new-label
-                                                 numbex--existing-labels)))))
+              (insert reaction)))
         (goto-char (car (car item)))
         (delete-region (car (car item))
                        (cdr (car item)))
@@ -483,19 +492,10 @@ The suffix to be added is \"-NN\", where N is a digit."
                              nil t))
          (sanitized-label (replace-regexp-in-string "[[:space:]]" "" label)))
     (if (member sanitized-label numbex--existing-labels)
-        (let ((what-to-do (read-multiple-choice
-                           (concat sanitized-label
-                                   " is already a label, are you sure?")
-                             '((?y "yes")
-                               (?n "no")
-                               (?! "make label unique")))))
-            (if (equal what-to-do '(?n "no"))
+        (let ((reaction (numbex--prompt-with-duplicate-label sanitized-label)))
+            (if (not reaction)
                 (numbex--example)
-              (if (equal what-to-do '(?y "yes"))
-                  (insert "{[ex:" sanitized-label "]}")
-                (insert "{[ex:" (numbex--uniquify-string
-                                 sanitized-label numbex--existing-labels)
-                        "]}"))))
+              (insert "{[ex:" reaction "]}")))
       (insert "{[ex:" sanitized-label "]}"))))
 
 (defun numbex--reference ()
