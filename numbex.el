@@ -264,14 +264,15 @@ once the buffer is widened again."
                          (buffer-substring-no-properties (match-end 0)
                                                          (line-end-position))
                          numbex--label-line)
-                (push
-                 (cons clean-label
-                       (concat n-string
-                               " "
-                               (buffer-substring-no-properties
-                                (match-end 0)
-                                (line-end-position))))
-                 annotation))
+                (unless (string-blank-p clean-label)
+                  (push
+                   (cons clean-label
+                         (concat n-string
+                                 " "
+                                 (buffer-substring-no-properties
+                                  (match-end 0)
+                                  (line-end-position))))
+                   annotation)))
               ;; Before the next iteration, increment both counters
               (setq counter (1+ counter))))))
       (kill-buffer (current-buffer)))
