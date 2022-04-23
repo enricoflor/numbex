@@ -41,7 +41,7 @@
 
 (require 'subr-x)
 
-(defvar numbex-mode)
+(defconst numbex-mode)
 
 (defgroup numbex nil
   "Automatically number examples and references to them."
@@ -99,9 +99,9 @@ variable is the initial value of the buffer-local
 ;; There is some redundancy in some of these regexp but it is done for
 ;; consistency: the first capture group is always the type, the second
 ;; is always the label of the item.
-(defvar numbex--item-re "{\\[\\([pnr]?ex\\):\\(.*?\\)\\]}")
-(defvar numbex--example-re "{\\[\\(ex\\):\\(.*?\\)\\]}")
-(defvar numbex--reference-re "{\\[\\([pnr]+ex\\):\\(.*?\\)\\]}")
+(defconst numbex--item-re "{\\[\\([pnr]?ex\\):\\(.*?\\)\\]}")
+(defconst numbex--example-re "{\\[\\(ex\\):\\(.*?\\)\\]}")
+(defconst numbex--reference-re "{\\[\\([pnr]+ex\\):\\(.*?\\)\\]}")
 
 (defun numbex--item-at-point ()
   "Return position of the label of the item point is on and its type.
@@ -129,7 +129,7 @@ Thus, when point is on an item:
           nil)))))
 
 ;; This regexp matches either an item of a form-feed character
-(defvar numbex--item-form-feed-re "{\\[\\([pnr]?ex\\):\\(.*?\\)\\]}\\|")
+(defconst numbex--item-form-feed-re "{\\[\\([pnr]?ex\\):\\(.*?\\)\\]}\\|")
 
 ;; These are the hash tables and list that are reset at every
 ;; evaluation of 'numbex--scan-buffer': they contain all the
