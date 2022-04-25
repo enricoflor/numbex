@@ -71,33 +71,33 @@ While you can manipulate these items yourself (either manually or
 programmatically), it is much more convenient to use the command
 ~numbex-do~ (more on this below).
 
-*** Numbering of examples
+*** Absolute vs. relative numbering of examples
 
 How examples are numbered when ~numbex-mode~ is first activated depends
-on the value of the variable ~numbex-relative-numbering~ (by default ~t~).
-The mode of numbering can be switched between absolute and relative
-interactively and buffer-locally with the function
+on the value of the variable ~numbex-relative-numbering~ (by default ~t~)
+and by ~numbex-numbering-reset-regexps~ (by default ~("")~).
+
+If ~numbex-relative-numbering~ is ~nil~, examples, whether labeled or not,
+are just numbered sequentially, starting with ~(1)~ on the very first
+example in the buffer.  The counter never restarts from ~(1)~.  The
+value of ~numbex-relative-numbering~ (a buffer-local variable) can be
+switched interactively with the command
 ~numbex-toggle-relative-numbering~.
-**** Absolute numbering
 
-If ~numbex-relative-numbering~ is ~nil~, examples, whether labeled or
-not, are just numbered sequentially, starting with ~(1)~ on the very
-first example in the buffer.  The numbering is absolute because there
-is just one counter for the entire buffer.  For example, if the buffer
-is narrowed, the very first example will be labeled as ~(2)~ if there
-is another example that comes before it in the widened buffer.
+The buffer-local variable ~numbex-numbering-reset-regexps~ is a list of
+regexps, each of whic determines where the numbering should restart.
+Its default value of ~("")~ means that the numbering only restarts at
+page breaks.  You can add to the list whatever regexp you want, and
+you can assign a value as a file local variable.  So for instance
+having this magic comment at the bottom of the buffer will cause the
+numbering to restart at each page break and at each 1st and 2nd level
+org-mode heading:
 
-**** Relative numbering
-
-Relative numbering is handy when working with very large files.  If
-you set ~numbex-relative-numbering~, the counter will be reset at
-every /page/, that is, at every form-feed character (ASCII 12) which
-you can insert in the buffer with ~C-q C-l~.  Imagine you have example
-X and Y which are numbered ~(7)~ and ~(8)~ respectively: if you insert
-a form-feed character between them, and relative numbering is active,
-Y will be labeled ~(1)~, and the example after it ~(2)~ and so on.
-Similarly, if you narrow the buffer the numbering of examples in the
-narrowed buffer will start again from ~(1)~.
+#+begin_example
+;; Local Variables:
+;; numbex-numbering-reset-regexps: ("" "^\\*\\*+ ")
+;; End:
+#+end_example
 
 It is important to note that *only the numbering* is affected by
 ~numbex-relative-numbering~.  This means that labels have to be unique
@@ -324,3 +324,10 @@ on the idle-timer every 0.3 seconds.  It is unlikely, however, that
 you will ever have this many examples and references in a single
 buffer.  If you plan to keep notes with more than /ten thousand/
 items... it's better if you don't use ~numbex-mode~ at all.
+
+** Example ~use-package~ declaration
+#+begin_src emacs-lisp
+(use-package numbex
+  :custom
+  ())
+#+end_src
