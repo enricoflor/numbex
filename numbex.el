@@ -85,15 +85,6 @@ specified by 'font-lock-warning-face'."
   :type 'boolean
   :group 'numbex)
 
-(defcustom numbex-relative-numbering t
-  "If t, the numbering restart from (1) at each page by default.
-Pages are marked by the form-feed character.  The value of this
-variable is the initial value of the buffer-local
-'numbex--relative', whose value can be toggled interactively with
-'numbex-toggle-relative-numbering'."
-  :type 'boolean
-  :group 'numbex)
-
 (defvar numbex--idle-timer nil)
 
 ;; There is some redundancy in some of these regexp but it is done for
@@ -128,9 +119,6 @@ Thus, when point is on an item:
                                                          (match-end 1)))))
           nil)))))
 
-;; This regexp matches either an item of a form-feed character
-(defconst numbex--item-form-feed-re "{\\[\\([pnr]?ex\\):\\(.*?\\)\\]}\\|")
-
 ;; These are the hash tables and list that are reset at every
 ;; evaluation of 'numbex--scan-buffer': they contain all the
 ;; information pertinent to the numbering and the referencing of
@@ -158,12 +146,36 @@ Thus, when point is on an item:
 (defvar-local numbex--numbers-list nil
   "A list of strings with to the relative numbering in the buffer.")
 
-(defvar-local numbex--relative nil
-  "If nil, the numbering doesn't restart ever.
-If t, the numbering restarts at every form-feed character, if the
-buffer is not narrowed, or at the beginning of the narrowing, if
-it is narrowed.  The initial value of this variable is set as the
-same as 'numbex-relative-numbering'.")
+(defcustom numbex-relative-numbering t
+  "If nil, the numbering never restarts in the buffer.
+If t, numbering restart at \"(1)\" at every regexp specified in
+'numbex-numbering-reset-regexps'.  This variable is made
+buffer-local its value can be toggled interactively with
+'numbex-toggle-relative-numbering'."
+  :type 'boolean
+  :group 'numbex)
+
+(make-variable-buffer-local 'numbex-relative-numbering)
+
+(defcustom numbex-numbering-reset-regexps
+  '("")
+  "List of regexps at which numbering restarts.
+If the buffer-local value of 'numbex-relative-numbering' is t,
+numbering restarts at \"(1)\" at each of the regexp in this list.
+The default value is the form-feed character (\"\f\" or \"\").
+
+Other good values to add would be org headings.  If you want the
+numbering to restart at each form feed character and at every
+level 1st and 2nd org-mode heading you can add this regexp to the
+list: \"^\\*\\*? \".
+
+This variable is made buffer-local, and can be specified as a
+file-local variable (for example, with
+'add-file-local-variable')."
+  :type '(list string)
+  :group 'numbex)
+
+(make-variable-buffer-local 'numbex-numbering-reset-regexps)
 
 (defvar-local numbex--items-list nil
   "List of all the items or form-feed characters currently in the buffer.
@@ -183,16 +195,24 @@ and ending up with many duplicate labels or mistaken references
 once the buffer is widened again."
   ;; First of all, recreate the two hash tables with the size of the
   ;; last value of 'numbex--existing-labels'
-  (let ((old-number-labels (length numbex--existing-labels))
-        (narrowed (buffer-narrowed-p))
-        (start-of-buffer (point-min))
-        (point-in-narrowing nil)
-        (labels '())
-        (duplicates '())
-        (numbers '())
-        (items '())
-        (annotation '())
-        (counter 1))
+  (let* ((old-number-labels (length numbex--existing-labels))
+         (narrowed (buffer-narrowed-p))
+         (start-of-buffer (point-min))
+         (point-in-narrowing nil)
+         (labels '())
+         (duplicates '())
+         (numbers '())
+         (items '())
+         (annotation '())
+         (counter 1)
+         (delimiters
+          (if (assoc 'numbex-numbering-reset-regexps
+                     file-local-variables-alist)
+              (cdr (assoc 'numbex-numbering-reset-regexps
+                          file-local-variables-alist))
+            numbex-numbering-reset-regexps))
+         (delimiters-re (mapconcat 'identity delimiters "\\|"))
+         (global-re (concat numbex--item-re "\\|" delimiters-re)))
     (setq numbex--label-line (make-hash-table :test 'equal
                                               :size old-number-labels))
     (setq numbex--label-number (make-hash-table :test 'equal
@@ -201,12 +221,14 @@ once the buffer is widened again."
     (with-current-buffer (clone-indirect-buffer nil nil t)
       (widen)
       (goto-char (point-min))
-      (while (re-search-forward numbex--item-form-feed-re nil t)
+      (while (re-search-forward global-re nil t)
         (push (match-string-no-properties 0) items)
-        (if (equal "" (match-string-no-properties 0))
-            ;; We hit a form-feed character: If numbex--relative is t,
-            ;; reset the counter to 1, otherwise do nothing
-            (when numbex--relative
+        (if (save-match-data
+              (string-match delimiters-re (match-string-no-properties 0)))
+            ;; We hit a delimiter character: If
+            ;; numbex-relative-numbering is t, reset the counter to 1,
+            ;; otherwise do nothing
+            (when numbex-relative-numbering
               (setq counter 1))
           ;; We hit an item: first thing we do is removing whitespace.
           (let ((clean-label
@@ -232,7 +254,7 @@ once the buffer is widened again."
             ;; it won't reset again at the next match.
             (when (equal type "ex")
               (when (and (not point-in-narrowing)
-                         numbex--relative
+                         numbex-relative-numbering
                          narrowed
                          (> (point) start-of-buffer))
                 (setq point-in-narrowing t)
@@ -330,7 +352,7 @@ font-lock-faces."
 Set 'numbex-hidden-labels' to t."
   (setq numbex--total-number-of-items 0)
   ;; First, let's number the examples.  If the buffer is narrowed and
-  ;; 'numbex--relative' is t, we just need to number the examples in
+  ;; 'numbex-relative-numbering' is t, we just need to number the examples in
   ;; the buffer.
   (with-current-buffer (clone-indirect-buffer nil nil t)
     (widen)
@@ -398,13 +420,13 @@ Set 'numbex-hidden-labels' to t."
   (setq numbex--hidden-labels t))
 
 (defun numbex-toggle-relative-numbering ()
-  "Toggle value of 'numbex--relative' (buffer-local)."
+  "Toggle value of 'numbex-relative-numbering' (buffer-local)."
   (interactive)
-  (if numbex--relative
+  (if numbex-relative-numbering
       (progn
-        (setq numbex--relative nil)
+        (setq numbex-relative-numbering nil)
         (message "Relative numbering deactivated"))
-    (setq numbex--relative t)
+    (setq numbex-relative-numbering t)
     (message "Relative numbering activated")))
 
 ;;;###autoload
@@ -815,7 +837,9 @@ concerned."
     (when (and (> numbex--total-number-of-items numbex--safe-number-items)
                numbex--automatic-refresh)
       (let* ((question
-              (format "There are %s items in the buffer.\nDo you want to disable automatic refresh (you can refresh yourself with 'numbex-refresh')?"
+              (format "There are %s items in the buffer.\n
+Do you want to disable automatic refresh\n
+(you can refresh yourself with 'numbex-refresh')?"
                       numbex--total-number-of-items))
              (choice (yes-or-no-p question)))
         (when choice
@@ -864,7 +888,6 @@ portion of the buffer."
         ;; have the default size of 65
         (setq numbex--label-line (make-hash-table :test 'equal))
         (setq numbex--label-number (make-hash-table :test 'equal))
-        (setq numbex--relative numbex-relative-numbering)
         (numbex-refresh)
         (add-hook 'auto-save-hook #'numbex-refresh nil t)
         (add-hook 'before-save-hook #'numbex-refresh nil t))
