@@ -41,7 +41,7 @@
 
 (require 'subr-x)
 
-(defconst numbex-mode)
+(defvar numbex-mode)
 
 (defgroup numbex nil
   "Automatically number examples and references to them."
@@ -255,10 +255,10 @@ once the buffer is widened again."
                 (puthash clean-label n-string numbex--label-number)
                 (goto-char (match-end 0))
                 ;; This will change match data: if there is a number
-                ;; next to the item, it won't end up being included in
-                ;; the line.
+                ;; placeholder next to the item, it won't end up being
+                ;; included in the line.
                 (looking-at (concat (car numbex-delimiters)
-                                    "[[:digit:]\\?]+"
+                                    "[\\.]+"
                                     (cdr numbex-delimiters)))
                 (puthash clean-label
                          (buffer-substring-no-properties (match-end 0)
@@ -347,7 +347,7 @@ Set 'numbex-hidden-labels' to t."
               (label (buffer-substring-no-properties (match-beginning 2)
                                                      (match-end 2))))
           (when (looking-at (concat (car numbex-delimiters)
-                                    "[[:digit:]\\?]+"
+                                    "[\\.]+"
                                     (cdr numbex-delimiters)))
             (delete-region (match-beginning 0)
                            (match-end 0)))
@@ -356,7 +356,8 @@ Set 'numbex-hidden-labels' to t."
                  ;; As number, take the current car of
                  ;; numbex--numbers-list:
                  (let ((num (pop numbex--numbers-list)))
-                   (insert num)
+                   (insert (replace-regexp-in-string "[[:digit:]]\\|\\?"
+                                                     "." num))
                    (put-text-property b (point) 'display num)
                    (numbex--highlight label type b (point))
                    (setq previous-ex-n num)))
@@ -375,21 +376,22 @@ Set 'numbex-hidden-labels' to t."
                                        (concat (car numbex-delimiters)
                                                "??"
                                                (cdr numbex-delimiters))))))
-                   (insert num)
+                   (insert (replace-regexp-in-string "[[:digit:]]\\|\\?"
+                                                     "." num))
                    (put-text-property b (point) 'display num)
                    (numbex--highlight label type b (point))))
                 ((equal type "pex")
-                 (replace-match "" t t nil 2)
-                 (insert previous-ex-n)
+                 (insert (replace-regexp-in-string "[[:digit:]]\\|\\?" "."
+                                                   previous-ex-n))
                  (put-text-property b (point) 'display previous-ex-n))
                 ((equal type "nex")
-                 (replace-match "" t t nil 2)
                  (let ((num (if (car numbex--numbers-list)
                                 (car numbex--numbers-list)
                               (concat (car numbex-delimiters)
                                       "??"
                                       (cdr numbex-delimiters)))))
-                   (insert num)
+                   (insert (replace-regexp-in-string "[[:digit:]]\\|\\?"
+                                                     "." num))
                    (put-text-property b (point) 'display num)))))))
     (kill-buffer (current-buffer)))
   (numbex--toggle-font-lock-keyword t)
@@ -651,7 +653,7 @@ Allow the user to return a uniquified string by calling
         (delete-region (match-beginning 0)
                        (match-end 0))
         (when (looking-at (concat (car numbex-delimiters)
-                                    "[[:digit:]\\?]+"
+                                    "[\\.\\?]+"
                                     (cdr numbex-delimiters)))
             (delete-region (match-beginning 0)
                            (match-end 0)))
@@ -704,7 +706,7 @@ Allow the user to return a uniquified string by calling
           (goto-char b)
           (delete-region b e)
           (when (looking-at (concat (car numbex-delimiters)
-                                    "[[:digit:]\\?]+"
+                                    "[\\.\\?]+"
                                     (cdr numbex-delimiters)))
             (delete-region (match-beginning 0)
                            (match-end 0)))
