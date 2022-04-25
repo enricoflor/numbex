@@ -5,7 +5,7 @@
 ;; Author: Enrico Flor <enrico@eflor.net>
 ;; Maintainer: Enrico Flor <enrico@eflor.net>
 ;; URL: https://github.com/enricoflor/numbex
-;; Version: 0.3.0
+;; Version: 0.3.1
 ;; Package-Requires: ((emacs "26.1"))
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
@@ -490,10 +490,10 @@ Allow the user to return a uniquified string by calling
         (delete-region (car (car item))
                        (cdr (car item)))
         (insert new-label))
-      (when (and (equal type "ex") novel)
+      (when (and (equal type "ex") novel (not (string-blank-p old-label)))
         (let ((rename (yes-or-no-p
                        "Relabel all associated references?"))
-              (target (concat "{\\[[r]?ex:\\(" old-label "\\)\\]}")))
+              (target (concat "{\\[rex:\\(" old-label "\\)\\]}")))
           (when rename
             (goto-char (point-min))
             (while (search-forward-regexp target nil t)
