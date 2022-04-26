@@ -61,13 +61,13 @@ This [[https://github.com/jwiegley/use-package][use-package]] declaration illust
   (numbex-numbering-reset-regexps '("" "^\\* "))
   :bind
   (:map numbex-command-map
-	("RET" . numbex-do)		 ; create new item or edit one at point
-	("s" . numbex-search)		 ; search items throuh 'occur'
+	("RET" . numbex-do)		  ; new item or edit one at point
+	("s" . numbex-search)		  ; search items throuh 'occur'
 	("r" . numbex-toggle-relative-numbering)
-	("SPC" . numbex-toggle-display)	 ; show/hide underlying raw items
-	("p" . numbex-previous-example)	 ; jump to previous example
-	("n" . numbex-next-example)	 ; jump to next example
-	("w" . numbex-write-out-numbers) ; replace items with their number
+	("M-SPC" . numbex-toggle-display) ; show/hide underlying raw items
+	("M-p" . numbex-previous-example) ; jump to previous example
+	("M-n" . numbex-next-example)	  ; jump to next example
+	("w" . numbex-write-out-numbers)  ; replace items with their number
 	("g" . numbex-refresh)))
 #+end_src
 
