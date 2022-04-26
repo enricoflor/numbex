@@ -649,6 +649,43 @@ Allow the user to return a uniquified string by calling
           ((equal choice '(?u "unlabeled"))
            (occur "{\\[[pnr]?ex:\s*\\]}")))))
 
+(defun numbex-previous-example (&optional arg)
+  "Move point to previous example item.
+Always skip the first example item if it is on the same line as
+point.  Optional prefix ARG specifies how many examples backwards
+to jump to.  Do nothing if there is no previous example item in
+the accessible portion of the buffer."
+  (interactive "p")
+  (save-excursion
+    (beginning-of-line)
+    (unless (re-search-backward numbex--example-re nil t arg)
+      (if (> arg 1)
+          (user-error (format "No %s previous examples" arg))
+        (user-error "No previous example"))))
+  (beginning-of-line)
+  (when (re-search-backward numbex--example-re nil t arg)
+    (message "No previous example")))
+
+(defun numbex-next-example (&optional arg)
+  "Move point to next example item.
+Optional prefix ARG specifies how many examples forwards to jump
+to.  Do nothing if there is no next example item in the
+accessible portion of the buffer."
+  (interactive "p")
+  (let ((item-at-point (numbex--item-at-point)))
+    (save-excursion
+      (when (string-equal "ex" (cdr item-at-point))
+        (goto-char (cdar item-at-point)))
+      (unless (re-search-forward numbex--example-re nil t arg)
+        (if (> arg 1)
+            (user-error (format "No %s next examples" arg))
+          (user-error "No next example"))))
+    (when (string-equal "ex" (cdr item-at-point))
+      (goto-char (cdar item-at-point)))
+    (if (re-search-forward numbex--example-re nil t arg)
+        (goto-char (match-beginning 0))
+      (message "No previous example"))))
+
 ;;;###autoload
 (defun numbex-search ()
   "Grep the buffer for items."
