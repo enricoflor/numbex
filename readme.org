@@ -43,6 +43,34 @@ below, are ~numbex-search~, ~numbex-refresh~,
 ~numbex-toggle-relative-numbering~, ~numbex-convert-to-latex~,
 ~numbex-convert-from-latex~ and ~numbex-write-out-numbers~.
 
+This [[https://github.com/jwiegley/use-package][use-package]] declaration illustrates all possible customizations:
+
+#+begin_src emacs-lisp
+(use-package numbex
+  :config
+  ;; Set "M-n" as the prefix key for numbex commands
+  (define-key global-map (kbd "M-n") numbex-command-map)
+  :custom
+  (numbex-highlight-unlabeled t)
+  (numbex-highlight-duplicates t)
+  (numbex-relative-numbering t)
+  ;; Enclose numbers between parentheses
+  (numbex-delimiters '("(" . ")"))
+  ;; Restart numbering from "(1)" at each page break and at each top level
+  ;; org-mode heading
+  (numbex-numbering-reset-regexps '("" "^\\* "))
+  :bind
+  (:map numbex-command-map
+	("RET" . numbex-do)		 ; create new item or edit one at point
+	("s" . numbex-search)		 ; search items throuh 'occur'
+	("r" . numbex-toggle-relative-numbering)
+	("SPC" . numbex-toggle-display)	 ; show/hide underlying raw items
+	("p" . numbex-previous-example)	 ; jump to previous example
+	("n" . numbex-next-example)	 ; jump to next example
+	("w" . numbex-write-out-numbers) ; replace items with their number
+	("g" . numbex-refresh)))
+#+end_src
+
 You can install ~numbex~ via [[https://melpa.org/#/numbex][Melpa]].
 
 ** Basic usage
