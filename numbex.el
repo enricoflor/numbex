@@ -419,6 +419,7 @@ Set 'numbex-hidden-labels' to t."
   (numbex--toggle-font-lock-keyword t)
   (setq numbex--hidden-labels t))
 
+;;;###autoload
 (defun numbex-toggle-relative-numbering ()
   "Toggle value of 'numbex-relative-numbering' (buffer-local)."
   (interactive)
@@ -649,6 +650,7 @@ Allow the user to return a uniquified string by calling
           ((equal choice '(?u "unlabeled"))
            (occur "{\\[[pnr]?ex:\s*\\]}")))))
 
+;;;###autoload
 (defun numbex-previous-example (&optional arg)
   "Move point to previous example item.
 Always skip the first example item if it is on the same line as
@@ -663,9 +665,10 @@ the accessible portion of the buffer."
           (user-error (format "No %s previous examples" arg))
         (user-error "No previous example"))))
   (beginning-of-line)
-  (when (re-search-backward numbex--example-re nil t arg)
+  (unless (re-search-backward numbex--example-re nil t arg)
     (message "No previous example")))
 
+;;;###autoload
 (defun numbex-next-example (&optional arg)
   "Move point to next example item.
 Optional prefix ARG specifies how many examples forwards to jump
@@ -789,6 +792,7 @@ accessible portion of the buffer."
 (defvar-local numbex--buffer-hash nil
   "Store value of 'buffer-hash' buffer-locally.")
 
+;;;###autoload
 (defun numbex-refresh (&optional no-echo)
   "Scan the buffer and assign numbers.
 If NO-ECHO is non-nil, do not warn about duplicates.  This is to
@@ -898,6 +902,9 @@ portion of the buffer."
      '(("{\\[[pnr]?ex:\\(.*?\\)\\]}"
         0 '(face nil invisible t) append))))
   (save-excursion (font-lock-fontify-region (point-min) (point-max))))
+
+(defvar numbex-command-map (make-sparse-keymap)
+  "Keymap for 'numbex-mode' commands.")
 
 ;;;###autoload
 (define-minor-mode numbex-mode
