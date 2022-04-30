@@ -30,9 +30,9 @@
 
 ;; numbex.el provides a minor mode that manages numbered examples.
 ;; Its primary function is to take care for the user of the correct
-;; sequential numbering of examples in the buffer.  It also takes care
-;; that references to examples are updated with the change in the
-;; numbering.
+;; sequential numbering of examples in the buffer.  It also
+;; automatically makes sure that references to examples are up to date
+;; with the change in the numbering.
 ;;
 ;; For explanation as to how to use numbex, check the readme.org file
 ;; at <https://github.com/enricoflor/numbex>.
@@ -62,12 +62,6 @@ if nil, 'numbex-refresh will be added to 'auto-save-hook' and
 (defvar-local numbex--hidden-labels t
   "If t, numbex items have a numerical overlay.")
 
-(defcustom numbex-delimiters '("(" . ")")
-  "Opening and closing characters used around numbers.
-Set two empty strings if you just want the number."
-  :type '(cons string string)
-  :group 'numbex)
-
 (defcustom numbex-highlight-unlabeled t
   "If t, items that are missing a label are highlighted.
 Blank strings (containing only white space) count as no label.
@@ -85,14 +79,17 @@ specified by 'font-lock-warning-face'."
   :type 'boolean
   :group 'numbex)
 
-(defvar numbex--idle-timer nil)
-
 ;; There is some redundancy in some of these regexp but it is done for
 ;; consistency: the first capture group is always the type, the second
 ;; is always the label of the item.
-(defconst numbex--item-re "{\\[\\([pnr]?ex\\):\\(.*?\\)\\]}")
-(defconst numbex--example-re "{\\[\\(ex\\):\\(.*?\\)\\]}")
-(defconst numbex--reference-re "{\\[\\([pnr]+ex\\):\\(.*?\\)\\]}")
+(defconst numbex--item-re "{\\[\\([pnr]?ex\\):\\(.*?\\)\\]}"
+  "Regexp that matches any numbex item (example or reference).")
+
+(defconst numbex--example-re "{\\[\\(ex\\):\\(.*?\\)\\]}"
+  "Regexp that matches any numbex example item.")
+
+(defconst numbex--reference-re "{\\[\\([pnr]+ex\\):\\(.*?\\)\\]}"
+  "Regexp that matches any numbex reference item.")
 
 (defun numbex--item-at-point ()
   "Return position of the label of the item point is on and its type.
@@ -184,6 +181,12 @@ Updated by 'numbex--scan-buffer'.")
 (defvar-local numbex--annotation-alist '()
   "Alist mapping labels to strings of number and context.")
 
+(defcustom numbex-delimiters '("(" . ")")
+  "Opening and closing characters used around numbers.
+Set two empty strings if you just want the number."
+  :type '(cons string string)
+  :group 'numbex)
+
 (defun numbex--scan-buffer ()
   "Collect information relevant for numbex from the buffer.
 Remove all whitespace from items.  Reset the values for the
@@ -206,18 +209,22 @@ once the buffer is widened again."
          (annotation '())
          (counter 1)
          (delimiters
+          ;; Check whether a file-local variable specifies a value for
+          ;; 'numbex-numbering-reset-regexps'.  If it does, set that value.
           (if (assoc 'numbex-numbering-reset-regexps
                      file-local-variables-alist)
               (cdr (assoc 'numbex-numbering-reset-regexps
                           file-local-variables-alist))
             numbex-numbering-reset-regexps))
+         ;; Construct a regexp that matches the disjunction of the
+         ;; regexps in 'numbex-numbering-reset-regexps'.
          (delimiters-re (mapconcat 'identity delimiters "\\|"))
          (global-re (concat numbex--item-re "\\|" delimiters-re)))
     (setq numbex--label-line (make-hash-table :test 'equal
-                                              :size old-number-labels))
-    (setq numbex--label-number (make-hash-table :test 'equal
-                                                :size old-number-labels))
-    (setq numbex--total-number-of-items 0)
+                                              :size old-number-labels)
+          numbex--label-number (make-hash-table :test 'equal
+                                                :size old-number-labels)
+          numbex--total-number-of-items 0)
     (with-current-buffer (clone-indirect-buffer nil nil t)
       (widen)
       (goto-char (point-min))
@@ -257,8 +264,8 @@ once the buffer is widened again."
                          numbex-relative-numbering
                          narrowed
                          (> (point) start-of-buffer))
-                (setq point-in-narrowing t)
-                (setq counter 1))
+                (setq point-in-narrowing t
+                      counter 1))
               ;; For convenience, let's store strings of the form
               ;; "(1)" instead of numbers like 1 in the lists, so we
               ;; won't have to bother convert it later when it's time
@@ -301,11 +308,11 @@ once the buffer is widened again."
     ;; Now we are out of the indirect buffer, and we can set the rest
     ;; of the buffer local variables with the values we obtained from
     ;; the loop.
-    (setq numbex--numbers-list (nreverse numbers))
-    (setq numbex--duplicates duplicates)
-    (setq numbex--existing-labels labels)
-    (setq numbex--items-list items)
-    (setq numbex--annotation-alist annotation)))
+    (setq numbex--numbers-list (nreverse numbers)
+          numbex--duplicates duplicates
+          numbex--existing-labels labels
+          numbex--items-list items
+          numbex--annotation-alist annotation))
 
 (defun numbex--highlight (lab type b e)
   "Add face text properties to substring between B and E.
@@ -448,8 +455,8 @@ The suffix to be added is \"-NN\", where N is a digit."
     (while (member label l)
       (let ((suffix (concat "--"
                             (format "%s" counter))))
-        (setq label (concat s suffix))
-        (setq counter (1+ counter))))
+        (setq label (concat s suffix)
+              counter (1+ counter))))
     label))
 
 (defun numbex--prompt-with-duplicate-label (label)
@@ -820,6 +827,8 @@ Numbex can deal with larger numbers than that, but in the
 interest of performance the refresh on idle timer should be
 disabled at a certain point.")
 
+(defvar numbex--idle-timer nil)
+
 (defun numbex--timed ()
   "Housekeeping function to be evaluated on 'numbex--idle-timer'.
 If not in 'numbex-mode' or 'numbex--hidden-labels' is nil, do
@@ -911,7 +920,7 @@ portion of the buffer."
   "Automatically number examples and references to them."
   :init-value nil
   :global nil
-  :lighter " nbex"
+  :lighter " nx"
   :group 'convenience
   (if numbex-mode
       ;; activating numbex-mode
@@ -930,8 +939,8 @@ portion of the buffer."
         (numbex--count-and-ask)
         ;; For the first time they are created, let the hash tables
         ;; have the default size of 65
-        (setq numbex--label-line (make-hash-table :test 'equal))
-        (setq numbex--label-number (make-hash-table :test 'equal))
+        (setq numbex--label-line (make-hash-table :test 'equal)
+              numbex--label-number (make-hash-table :test 'equal))
         (numbex-refresh)
         (add-hook 'auto-save-hook #'numbex-refresh nil t)
         (add-hook 'before-save-hook #'numbex-refresh nil t))
