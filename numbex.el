@@ -175,7 +175,7 @@ file-local variable (for example, with
 (make-variable-buffer-local 'numbex-numbering-reset-regexps)
 
 (defvar-local numbex--items-list nil
-  "List of all the items or form-feed characters currently in the buffer.
+  "List of all items and reset regexps in the buffer.
 Updated by 'numbex--scan-buffer'.")
 
 (defvar-local numbex--annotation-alist '()
@@ -187,6 +187,8 @@ Set two empty strings if you just want the number."
   :type '(cons string string)
   :group 'numbex)
 
+(make-variable-buffer-local 'numbex-delimiters)
+
 (defun numbex--scan-buffer ()
   "Collect information relevant for numbex from the buffer.
 Remove all whitespace from items.  Reset the values for the
@@ -196,8 +198,13 @@ narrowed, numbex will behave taking into consideration the entire
 buffer.  This reduces the risk of working on a narrowed buffer
 and ending up with many duplicate labels or mistaken references
 once the buffer is widened again."
-  ;; First of all, recreate the two hash tables with the size of the
-  ;; last value of 'numbex--existing-labels'
+  ;; Check whether a file-local variable specifies a value for
+  ;; 'numbex-delimiters'.  If it does, set that value.
+  (when (assoc 'numbex-delimiters file-local-variables-alist)
+    (setq numbex-delimiters
+          (cdr (assoc 'numbex-delimiters file-local-variables-alist))))
+  ;; Recreate the two hash tables with the size of the last value of
+  ;; 'numbex--existing-labels'
   (let* ((old-number-labels (length numbex--existing-labels))
          (narrowed (buffer-narrowed-p))
          (start-of-buffer (point-min))
@@ -233,10 +240,8 @@ once the buffer is widened again."
         (if (save-match-data
               (string-match delimiters-re (match-string-no-properties 0)))
             ;; We hit a delimiter character: If
-            ;; numbex-relative-numbering is t, reset the counter to 1,
-            ;; otherwise do nothing
-            (when numbex-relative-numbering
-              (setq counter 1))
+            ;; 'numbex-relative-numbering' is t, reset the counter to 1
+            (when numbex-relative-numbering (setq counter 1))
           ;; We hit an item: first thing we do is removing whitespace.
           (let ((clean-label
                  (if (string-match "[[:space:]]"
@@ -312,7 +317,7 @@ once the buffer is widened again."
           numbex--duplicates duplicates
           numbex--existing-labels labels
           numbex--items-list items
-          numbex--annotation-alist annotation))
+          numbex--annotation-alist annotation)))
 
 (defun numbex--highlight (lab type b e)
   "Add face text properties to substring between B and E.
@@ -347,9 +352,7 @@ font-lock-faces."
             (lab (buffer-substring-no-properties (match-beginning 2)
                                                  (match-end 2))))
         (set-text-properties b e nil)
-        (when (or (equal type "ex")
-                  (equal type "rex")
-                  (not no-colors))
+        (when (or (equal type "ex") (equal type "rex") (not no-colors))
           (numbex--highlight lab type b e)))))
   (numbex--toggle-font-lock-keyword)
   (setq numbex--hidden-labels nil))
@@ -431,9 +434,8 @@ Set 'numbex-hidden-labels' to t."
   "Toggle value of 'numbex-relative-numbering' (buffer-local)."
   (interactive)
   (if numbex-relative-numbering
-      (progn
-        (setq numbex-relative-numbering nil)
-        (message "Relative numbering deactivated"))
+      (progn (setq numbex-relative-numbering nil)
+             (message "Relative numbering deactivated"))
     (setq numbex-relative-numbering t)
     (message "Relative numbering activated")))
 
@@ -453,10 +455,8 @@ The suffix to be added is \"-NN\", where N is a digit."
   (let ((counter 1)
         (label s))
     (while (member label l)
-      (let ((suffix (concat "--"
-                            (format "%s" counter))))
-        (setq label (concat s suffix)
-              counter (1+ counter))))
+      (let ((suffix (concat "--" (format "%s" counter))))
+        (setq label (concat s suffix) counter (1+ counter))))
     label))
 
 (defun numbex--prompt-with-duplicate-label (label)
@@ -792,9 +792,7 @@ accessible portion of the buffer."
                          (car numbex--duplicates)))
       (message (concat (format  "%s duplicate labels found: "
                                 (length numbex--duplicates))
-                       (mapconcat #'identity
-                                  numbex--duplicates
-                                  "  "))))))
+                       (mapconcat #'identity numbex--duplicates "  "))))))
 
 (defvar-local numbex--buffer-hash nil
   "Store value of 'buffer-hash' buffer-locally.")
@@ -814,10 +812,8 @@ be added to 'numbex-mode-hook', 'auto-save-hook' and
     (unless (= (sxhash-equal old-items-list)
                (sxhash-equal numbex--items-list))
       (numbex--add-numbering)
-      (unless hidden
-        (numbex--remove-numbering))
-      (unless no-echo
-        (numbex--echo-duplicates))))
+      (unless hidden (numbex--remove-numbering))
+      (unless no-echo (numbex--echo-duplicates))))
   ;; Update the value of numbex--buffer-hash
   (setq numbex--buffer-hash (buffer-hash)))
 
@@ -838,24 +834,19 @@ echo area.  If point is not on an item, evaluate
 'numbex--scan-buffer' and 'numbex--add-numbering' so that the
 appearance of the buffer is kept up to date as far as numbex is
 concerned."
-  (when (and numbex-mode
-             numbex--hidden-labels)
+  (when (and numbex-mode numbex--hidden-labels)
     (let ((item (numbex--item-at-point)))
       (if item
           ;; Point is on an item: show the underlying label.  If the
           ;; item is a reference, show the context of the
           ;; corresponding example as well.
           (let* ((type (cdr item))
-                 (label
-                  (buffer-substring-no-properties (car (car item))
-                                                  (cdr (car item)))))
-            (if (not (equal type "ex"))
-                (message (concat label
-                                 ": "
-                                 (gethash label
-                                          numbex--label-line
-                                          " ")))
-              (message label)))
+                 (label (buffer-substring-no-properties (car (car item))
+                                                        (cdr (car item)))))
+            (if (equal type "ex")
+                (message label)
+              (message (concat label ": " (gethash label
+                                                   numbex--label-line " "))) ))
         ;; Point is not on an item, just rescan the buffer and
         ;; renumber the items.  Do it only if this wouldn't cripple
         ;; everything.
@@ -866,8 +857,7 @@ concerned."
                     ;; don't do anything!  The value of
                     ;; 'numbex--buffer-hash' is updated by
                     ;; 'numbex-refresh'
-                    (equal (buffer-hash)
-                           numbex--buffer-hash))
+                    (equal (buffer-hash) numbex--buffer-hash))
           ;; Giving t as an argument prevents 'numbex-refresh' to
           ;; annoy the user with messages in the echo area about
           ;; duplicate labels.  They will only be shown if the
@@ -887,13 +877,12 @@ concerned."
     (when (and (> numbex--total-number-of-items numbex--safe-number-items)
                numbex--automatic-refresh)
       (let* ((question
-              (format "There are %s items in the buffer.\n
-Do you want to disable automatic refresh\n
+              (format "There are %s items in the buffer.
+Do you want to disable automatic refresh?
 (you can refresh yourself with 'numbex-refresh')?"
                       numbex--total-number-of-items))
              (choice (yes-or-no-p question)))
-        (when choice
-            (setq numbex--automatic-refresh nil))))))
+        (when choice (setq numbex--automatic-refresh nil))))))
 
 (defun numbex--toggle-font-lock-keyword (&optional add)
   "Remove or add font-lock-keyword making numbex items invisible.
@@ -903,13 +892,9 @@ set the same variable to nil.  Finally, refontify accessible
 portion of the buffer."
   (if add
       (font-lock-add-keywords
-       nil
-       '(("{\\[[pnr]?ex:\\(.*?\\)\\]}"
-          0 '(face nil invisible t) append)))
+       nil '(("{\\[[pnr]?ex:\\(.*?\\)\\]}" 0 '(face nil invisible t) append)))
     (font-lock-remove-keywords
-     nil
-     '(("{\\[[pnr]?ex:\\(.*?\\)\\]}"
-        0 '(face nil invisible t) append))))
+     nil '(("{\\[[pnr]?ex:\\(.*?\\)\\]}" 0 '(face nil invisible t) append))))
   (save-excursion (font-lock-fontify-region (point-min) (point-max))))
 
 (defvar numbex-command-map (make-sparse-keymap)
@@ -926,15 +911,12 @@ portion of the buffer."
       ;; activating numbex-mode
       (progn
         (unless numbex--idle-timer
-          (setq numbex--idle-timer
-                (run-with-idle-timer 0.3 t #'numbex--timed)))
+          (setq numbex--idle-timer (run-with-idle-timer 0.3 t #'numbex--timed)))
         ;; Numbex needs font-lock
         (unless font-lock-mode
           (font-lock-mode 1))
         (font-lock-add-keywords
-         nil
-         '(("{\\[[pnr]?ex:\\(.*?\\)\\]}"
-            0 '(face nil invisible t) append)))
+         nil '(("{\\[[pnr]?ex:\\(.*?\\)\\]}" 0 '(face nil invisible t) append)))
         (save-excursion (font-lock-fontify-region (point-min) (point-max)))
         (numbex--count-and-ask)
         ;; For the first time they are created, let the hash tables
@@ -953,9 +935,7 @@ portion of the buffer."
     ;; numbex-highlight-unlabeled and numbex-highlight-duplicates:
     (numbex--remove-numbering t)
     (font-lock-remove-keywords
-         nil
-         '(("{\\[[pnr]?ex:\\(.*?\\)\\]}"
-            0 '(face nil invisible t) append)))
+     nil '(("{\\[[pnr]?ex:\\(.*?\\)\\]}" 0 '(face nil invisible t) append)))
     (save-excursion (font-lock-fontify-region (point-min) (point-max)))
     (remove-hook 'auto-save-hook #'numbex-refresh t)
     (remove-hook 'before-save-hook #'numbex-refresh t)))
