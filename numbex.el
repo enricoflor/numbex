@@ -163,8 +163,8 @@ The default value is the form-feed character (\"\f\" or \"\").
 
 Other good values to add would be org headings.  If you want the
 numbering to restart at each form feed character and at every
-level 1st and 2nd org-mode heading you can add this regexp to the
-list: \"^\\*\\*? \".
+level 1st and 2nd 'org-mode' heading you can add this regexp to
+the list: \"^\\*\\*? \".
 
 This variable is made buffer-local, and can be specified as a
 file-local variable (for example, with
@@ -301,8 +301,7 @@ once the buffer is widened again."
                 (unless (string-blank-p clean-label)
                   (push
                    (cons clean-label
-                         (concat n-string
-                                 " "
+                         (concat n-string " "
                                  (buffer-substring-no-properties
                                   (match-end 0)
                                   (line-end-position))))
@@ -328,8 +327,7 @@ and TYPE its type.  This function is called by
 nil) and by 'numbex--add-numbering'."
   (cond ((and (member lab numbex--duplicates)
               numbex-highlight-duplicates)
-         (add-text-properties b e
-                              '(font-lock-face 'font-lock-warning-face))
+         (add-text-properties b e '(font-lock-face 'font-lock-warning-face))
          (put-text-property b e 'rear-nonsticky t))
         ((and numbex-highlight-unlabeled
               (equal type "rex")
@@ -381,8 +379,7 @@ Set 'numbex-hidden-labels' to t."
           (when (looking-at (concat (car numbex-delimiters)
                                     "[\\.]+"
                                     (cdr numbex-delimiters)))
-            (delete-region (match-beginning 0)
-                           (match-end 0)))
+            (delete-region (match-beginning 0) (match-end 0)))
           (set-text-properties b e nil)
           (cond ((equal type "ex")
                  ;; As number, take the current car of
@@ -466,13 +463,9 @@ Allow the user to return a uniquified string by calling
   (let ((choice (read-multiple-choice
                  (concat label
                          " is used already, are you sure?")
-                 '((?y "yes")
-                   (?n "no")
-                   (?! "make label unique")))))
-    (cond ((equal choice '(?y "yes"))
-           label)
-          ((equal choice '(?n "no"))
-           nil)
+                 '((?y "yes") (?n "no") (?! "make label unique")))))
+    (cond ((equal choice '(?y "yes")) label)
+          ((equal choice '(?n "no")) nil)
           ((equal choice '(?! "make label unique"))
            (numbex--uniquify-string label numbex--existing-labels)))))
 
@@ -486,50 +479,41 @@ Allow the user to return a uniquified string by calling
   "With ITEM the output of 'numbex--item-at-point', change label."
   (save-excursion
     (let* ((old-label
-            (buffer-substring-no-properties (car (car item))
-                                            (cdr (car item))))
+            (buffer-substring-no-properties (car (car item)) (cdr (car item))))
            (type (cdr item))
            (new-label
             (if (equal type "ex")
                 (replace-regexp-in-string "[[:space:]]" ""
-                 (read-string (format
-                               "New label [default \"%s\"]: "
-                               old-label)
+                 (read-string (format "New label [default \"%s\"]: "
+                                      old-label)
                               old-label nil
                               old-label t))
               ;; If the item is a reference, provide completion with
               ;; the existing labels.
               (let ((completion-extra-properties
                      '(:annotation-function numbex--annotation-function)))
-                (completing-read
-                 (format "Label [default \"%s\"]: " old-label)
-                 numbex--annotation-alist
-                 nil nil
-                 old-label nil
-                 old-label t))))
+                (completing-read (format "Label [default \"%s\"]: " old-label)
+                                 numbex--annotation-alist
+                                 nil nil
+                                 old-label nil
+                                 old-label t))))
            (novel (not (member new-label numbex--existing-labels))))
-      (if (and (equal type "ex")
-               (not novel)
-               (not (equal new-label old-label)))
+      (if (and (equal type "ex") (not novel) (not (equal new-label old-label)))
           (let ((reaction (numbex--prompt-with-duplicate-label new-label)))
             (if (not reaction)
                 (numbex--edit item)
               (goto-char (car (car item)))
-              (delete-region (car (car item))
-                             (cdr (car item)))
+              (delete-region (car (car item)) (cdr (car item)))
               (insert reaction)))
         (goto-char (car (car item)))
-        (delete-region (car (car item))
-                       (cdr (car item)))
+        (delete-region (car (car item)) (cdr (car item)))
         (insert new-label))
-      (when (and (equal type "ex") novel)
-        (let ((rename (yes-or-no-p
-                       "Relabel all associated references?"))
+      (when (and (equal type "ex") novel (not (string-blank-p old-label)))
+        (let ((rename (yes-or-no-p "Relabel all associated references?"))
               (target (concat "{\\[[r]?ex:\\(" old-label "\\)\\]}")))
-          (when rename
-            (goto-char (point-min))
-            (while (search-forward-regexp target nil t)
-              (replace-match new-label t t nil 1)))))
+          (when rename (goto-char (point-min))
+                (while (search-forward-regexp target nil t)
+                  (replace-match new-label t t nil 1)))))
       ;; If item at point is nex: or pex:, make it into a rex:,
       ;; otherwise the new label will be wiped out automatically.  It
       ;; does not make sense to edit pex: and nex: items manually.
@@ -580,16 +564,18 @@ Allow the user to return a uniquified string by calling
 
 ;;;###autoload
 (defun numbex-do ()
-  "Insert a new item or edit the existing one at point."
+  "Insert a new item or edit the existing one at point.
+Remove the numbering first, exposing the underlying labels.
+After the buffer is edited (either by 'numbex--edit' or by
+'numbex--new'), refresh with 'numbex-refresh' and reapply the
+numbering if it was there before executing the command."
   (interactive)
   (let ((hidden numbex--hidden-labels))
-    (when hidden
-      (numbex--remove-numbering))
+    (when hidden (numbex--remove-numbering))
     (if (numbex--item-at-point)
         (numbex--edit (numbex--item-at-point))
       (numbex--new))
-    (when numbex--automatic-refresh
-      (numbex-refresh t))
+    (when numbex--automatic-refresh (numbex-refresh t))
     (if hidden
         (numbex--add-numbering)
       (numbex--remove-numbering))))
@@ -719,13 +705,11 @@ accessible portion of the buffer."
       (let ((label (match-string-no-properties 2))
             (type (match-string-no-properties 1)))
         (goto-char (match-beginning 0))
-        (delete-region (match-beginning 0)
-                       (match-end 0))
+        (delete-region (match-beginning 0) (match-end 0))
         (when (looking-at (concat (car numbex-delimiters)
                                     "[\\.\\?]+"
                                     (cdr numbex-delimiters)))
-            (delete-region (match-beginning 0)
-                           (match-end 0)))
+            (delete-region (match-beginning 0) (match-end 0)))
         (if (equal type "ex")
             (insert "\\label{ex:" label "}")
           (insert "(\\ref{ex:" label "})"))))))
@@ -754,13 +738,12 @@ accessible portion of the buffer."
 
 ;;;###autoload
 (defun numbex-write-out-numbers ()
-  "Write buffer to new file with numbers instead of numbex items."
+  "Write buffer to new file replacing numbex items with numbers."
   (interactive)
   (numbex--scan-buffer)
   (numbex--add-numbering)
   (let* ((original-buffer (current-buffer))
-         (new-buffer-name (concat "nb-"
-                                  (format "%s" original-buffer)))
+         (new-buffer-name (concat "nb-" (format "%s" original-buffer)))
          (unique-new-name (if (file-exists-p new-buffer-name)
                               (generate-new-buffer-name new-buffer-name)
                             new-buffer-name)))
@@ -777,8 +760,7 @@ accessible portion of the buffer."
           (when (looking-at (concat (car numbex-delimiters)
                                     "[\\.\\?]+"
                                     (cdr numbex-delimiters)))
-            (delete-region (match-beginning 0)
-                           (match-end 0)))
+            (delete-region (match-beginning 0) (match-end 0)))
           (insert number)))
       (write-file unique-new-name)
       (kill-current-buffer))))
@@ -809,8 +791,7 @@ be added to 'numbex-mode-hook', 'auto-save-hook' and
     (numbex--scan-buffer)
     ;; Now 'numbex--items-list' has been updated: do nothing if the
     ;; new value is the same as the old one.
-    (unless (= (sxhash-equal old-items-list)
-               (sxhash-equal numbex--items-list))
+    (unless (= (sxhash-equal old-items-list) (sxhash-equal numbex--items-list))
       (numbex--add-numbering)
       (unless hidden (numbex--remove-numbering))
       (unless no-echo (numbex--echo-duplicates))))
@@ -845,8 +826,8 @@ concerned."
                                                         (cdr (car item)))))
             (if (equal type "ex")
                 (message label)
-              (message (concat label ": " (gethash label
-                                                   numbex--label-line " "))) ))
+              (message (concat label ": "
+                               (gethash label numbex--label-line " ")))))
         ;; Point is not on an item, just rescan the buffer and
         ;; renumber the items.  Do it only if this wouldn't cripple
         ;; everything.
