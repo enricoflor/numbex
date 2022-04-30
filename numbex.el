@@ -580,69 +580,6 @@ numbering if it was there before executing the command."
         (numbex--add-numbering)
       (numbex--remove-numbering))))
 
-(defun numbex--search-not-at-point ()
-  "Let user choose a regexp and grep for it."
-  (let ((choice (read-multiple-choice "Look for:"
-                                      '((?a "all")
-                                        (?e "examples")
-                                        (?r "references")
-                                        (?d "duplicates")
-                                        (?u "unlabeled")))))
-    (cond ((equal choice '(?a "all"))
-           (occur numbex--item-re))
-          ((equal choice '(?e "examples"))
-           (occur numbex--example-re))
-          ((equal choice '(?r "references"))
-           (occur numbex--reference-re))
-          ((equal choice '(?d "duplicates"))
-           (occur (regexp-opt
-                   (nconc (mapcar (lambda (x) (concat "{[ex:"
-                                                      x
-                                                      "]}"))
-                                  numbex--duplicates)
-                          (mapcar (lambda (x) (concat "{[rex:"
-                                                      x
-                                                      "]}"))
-                                  numbex--duplicates)))))
-          ((equal choice '(?u "unlabeled"))
-           (occur "{\\[[pnr]?ex:\s*\\]}")))))
-
-(defun numbex--search-at-point ()
-  "Let user choose a regexp and grep for it."
-  (let* ((positions (car (numbex--item-at-point)))
-         (label (buffer-substring-no-properties (car positions)
-                                                (cdr positions)))
-         (reg (if (string-blank-p label)
-                  numbex--item-re
-                (concat "{\\[[pnr]?ex:" label "\\]}")))
-         (choice (read-multiple-choice "Look for:"
-                                       '((?a "all")
-                                         (?e "examples")
-                                         (?r "references")
-                                         (?l "label at point")
-                                         (?d "duplicates")
-                                         (?u "unlabeled")))))
-    (cond ((equal choice '(?a "all"))
-           (occur numbex--item-re))
-          ((equal choice '(?e "examples"))
-           (occur numbex--example-re))
-          ((equal choice '(?r "references"))
-           (occur numbex--reference-re))
-          ((equal choice '(?l "label at point"))
-           (occur reg))
-          ((equal choice '(?d "duplicates"))
-           (occur (regexp-opt
-                   (nconc (mapcar (lambda (x) (concat "{[ex:"
-                                                      x
-                                                      "]}"))
-                                  numbex--duplicates)
-                          (mapcar (lambda (x) (concat "{[rex:"
-                                                      x
-                                                      "]}"))
-                                  numbex--duplicates)))))
-          ((equal choice '(?u "unlabeled"))
-           (occur "{\\[[pnr]?ex:\s*\\]}")))))
-
 ;;;###autoload
 (defun numbex-previous-example (&optional arg)
   "Move point to previous example item.
@@ -684,13 +621,43 @@ accessible portion of the buffer."
 
 ;;;###autoload
 (defun numbex-search ()
-  "Grep the buffer for items."
+  "Find items in the buffer through 'occur'."
   (interactive)
   (numbex--remove-numbering)
   (numbex-refresh t)
-  (if (numbex--item-at-point)
-      (numbex--search-at-point)
-    (numbex--search-not-at-point))
+  (let* ((positions (car (numbex--item-at-point)))
+         (label (if positions
+                    (buffer-substring-no-properties (car positions)
+                                                    (cdr positions))
+                  ""))
+         (reg (concat "{\\[[pnr]?ex:" label "\\]}"))
+         (choice (read-multiple-choice "Look for:"
+                                       '((?a "all")
+                                         (?e "examples")
+                                         (?r "references")
+                                         (?d "duplicates")
+                                         (?u "unlabeled")))))
+    (when positions (cons '(?l "label at point") choice))
+    (cond ((equal choice '(?a "all"))
+           (occur numbex--item-re))
+          ((equal choice '(?e "examples"))
+           (occur numbex--example-re))
+          ((equal choice '(?r "references"))
+           (occur numbex--reference-re))
+          ((equal choice '(?l "label at point"))
+           (occur reg))
+          ((equal choice '(?d "duplicates"))
+           (occur (regexp-opt
+                   (nconc (mapcar (lambda (x) (concat "{[ex:"
+                                                      x
+                                                      "]}"))
+                                  numbex--duplicates)
+                          (mapcar (lambda (x) (concat "{[rex:"
+                                                      x
+                                                      "]}"))
+                                  numbex--duplicates)))))
+          ((equal choice '(?u "unlabeled"))
+           (occur "{\\[[pnr]?ex:\s*\\]}"))))
   (numbex--add-numbering))
 
 ;;;###autoload
