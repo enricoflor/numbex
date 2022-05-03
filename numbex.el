@@ -428,7 +428,6 @@ Set 'numbex-hidden-labels' to t."
   (numbex--toggle-font-lock-keyword t)
   (setq numbex--hidden-labels t))
 
-;;;###autoload
 (defun numbex-toggle-relative-numbering ()
   "Toggle value of 'numbex-relative-numbering' (buffer-local)."
   (interactive)
@@ -438,7 +437,6 @@ Set 'numbex-hidden-labels' to t."
     (setq numbex-relative-numbering t)
     (message "Relative numbering activated")))
 
-;;;###autoload
 (defun numbex-toggle-display ()
   "Remove numbers if they are present, add them otherwise."
   (interactive)
@@ -477,10 +475,14 @@ Allow the user to return a uniquified string by calling
     (when candidate
       (concat "  -- " candidate))))
 
-(defun numbex--edit (item)
+(defun numbex-edit ()
   "With ITEM the output of 'numbex--item-at-point', change label."
+  (interactive)
+  (unless (numbex--item-at-point)
+    (user-error "Not on a numbex item"))
   (save-excursion
-    (let* ((old-label
+    (let* ((item (numbex--item-at-point))
+           (old-label
             (buffer-substring-no-properties (car (car item)) (cdr (car item))))
            (type (cdr item))
            (new-label
@@ -503,7 +505,7 @@ Allow the user to return a uniquified string by calling
       (if (and (equal type "ex") (not novel) (not (equal new-label old-label)))
           (let ((reaction (numbex--prompt-with-duplicate-label new-label)))
             (if (not reaction)
-                (numbex--edit item)
+                (numbex-edit item)
               (goto-char (car (car item)))
               (delete-region (car (car item)) (cdr (car item)))
               (insert reaction)))
@@ -524,8 +526,11 @@ Allow the user to return a uniquified string by calling
         (re-search-backward "{\\[[pn]+ex")
         (replace-match "{[rex" t)))))
 
-(defun numbex--example ()
+(defun numbex-new-example ()
   "Insert a new example item."
+  (interactive)
+  (when (numbex--item-at-point)
+    (user-error "Point is on an existing numbex item"))
   (let* ((label (read-string "Label: "
                              nil nil
                              nil t))
@@ -533,12 +538,18 @@ Allow the user to return a uniquified string by calling
     (if (member sanitized-label numbex--existing-labels)
         (let ((reaction (numbex--prompt-with-duplicate-label sanitized-label)))
             (if (not reaction)
-                (numbex--example)
+                (numbex-new-example)
               (insert "{[ex:" reaction "]}")))
       (insert "{[ex:" sanitized-label "]}"))))
 
-(defun numbex--reference ()
-  "Insert a new reference item."
+(defun numbex-new-reference ()
+  "Insert a new reference item.
+Select from the existing labels with completion.
+
+Do nothing if point is currently on a numbex item."
+  (interactive)
+  (when (numbex--item-at-point)
+    (user-error "Point is on an existing numbex item"))
   (insert
    "{[rex:"
    (let ((completion-extra-properties
@@ -547,42 +558,64 @@ Allow the user to return a uniquified string by calling
                       numbex--annotation-alist))
    "]}"))
 
-(defun numbex--new ()
-  "Insert a new item."
+(defun numbex-new-reference-to-previous ()
+  "Insert \"{[pex:]}\".
+
+Do nothing if point is currently on a numbex item."
+  (interactive)
+  (when (numbex--item-at-point)
+    (user-error "Point is on an existing numbex item"))
+  (insert "{[pex:]}"))
+
+(defun numbex-new-reference-to-next ()
+  "Insert \"{[nex:]}\".
+
+Do nothing if point is currently on a numbex item."
+  (interactive)
+  (when (numbex--item-at-point)
+    (user-error "Point is on an existing numbex item"))
+  (insert "{[nex:]}"))
+
+(defun numbex-new-item ()
+  "Insert a new numbex item.
+
++ \"e\" to insert a new example
++ \"r\" to insert a new reference
++ \"n\" to insert a reference to the next example
++ \"p\" to insert a reference to the previous example
+
+Do nothing if point is currently on a numbex item."
+  (interactive)
+  (unless (numbex--item-at-point)
+    (user-error "Point is on an existing numbex item"))
   (let ((choice (read-multiple-choice "Insert new:"
                                       '((?e "example")
                                         (?r "reference")
                                         (?n "ref to next")
                                         (?p "ref to previous")))))
     (cond ((equal choice '(?e "example"))
-           (numbex--example))
+           (numbex-new-example))
           ((equal choice '(?r "reference"))
-           (numbex--reference))
+           (numbex-new-reference))
           ((equal choice '(?n "ref to next"))
            (insert "{[nex:]}"))
           ((equal choice '(?p "ref to previous"))
            (insert "{[pex:]}")))
     (insert " ")))
 
-;;;###autoload
 (defun numbex-do ()
-  "Insert a new item or edit the existing one at point.
-Remove the numbering first, exposing the underlying labels.
-After the buffer is edited (either by 'numbex--edit' or by
-'numbex--new'), refresh with 'numbex-refresh' and reapply the
-numbering if it was there before executing the command."
+  "Insert a new item or edit the existing one at point."
   (interactive)
   (let ((hidden numbex--hidden-labels))
     (when hidden (numbex--remove-numbering))
     (if (numbex--item-at-point)
-        (numbex--edit (numbex--item-at-point))
-      (numbex--new))
+        (numbex-edit)
+      (numbex-new-item))
     (when numbex--automatic-refresh (numbex-refresh t))
     (if hidden
         (numbex--add-numbering)
       (numbex--remove-numbering))))
 
-;;;###autoload
 (defun numbex-previous-example (&optional arg)
   "Move point to previous example item.
 Always skip the first example item if it is on the same line as
@@ -600,7 +633,6 @@ the accessible portion of the buffer."
   (unless (re-search-backward numbex--example-re nil t arg)
     (message "No previous example")))
 
-;;;###autoload
 (defun numbex-next-example (&optional arg)
   "Move point to next example item.
 Optional prefix ARG specifies how many examples forwards to jump
@@ -621,9 +653,14 @@ accessible portion of the buffer."
         (goto-char (match-beginning 0))
       (message "No previous example"))))
 
-;;;###autoload
 (defun numbex-search ()
-  "Find items in the buffer through 'occur'."
+  "Find items in the buffer through 'occur'.
+
++ \"a\" to return all items
++ \"e\" to return all example items
++ \"l\" to return all items with the same label of the one at point
++ \"d\" to return all items with a non unique label
++ \"u\" to return all items without a label"
   (interactive)
   (numbex--remove-numbering)
   (numbex-refresh t)
@@ -662,10 +699,9 @@ accessible portion of the buffer."
                                                       "]}"))
                                   numbex--duplicates)))))
           ((equal choice '(?u "unlabeled"))
-           (occur "{\\[[pnr]?ex:\s*\\]}"))))
+           (occur "{\\[[r]?ex:\s*\\]}"))))
   (numbex--add-numbering))
 
-;;;###autoload
 (defun numbex-convert-to-latex ()
   "Replace all numbex items into corresponding LaTeX macros."
   (interactive)
@@ -686,7 +722,6 @@ accessible portion of the buffer."
             (insert "\\label{ex:" label "}")
           (insert "(\\ref{ex:" label "})"))))))
 
-;;;###autoload
 (defun numbex-convert-from-latex ()
   "Replace relevant LaTeX macros with corresponding numbex items."
   (interactive)
@@ -708,7 +743,6 @@ accessible portion of the buffer."
   (when numbex--automatic-refresh
     (numbex-refresh)))
 
-;;;###autoload
 (defun numbex-write-out-numbers ()
   "Write buffer to new file replacing numbex items with numbers."
   (interactive)
@@ -751,7 +785,6 @@ accessible portion of the buffer."
 (defvar-local numbex--buffer-hash nil
   "Store value of 'buffer-hash' buffer-locally.")
 
-;;;###autoload
 (defun numbex-refresh (&optional no-echo)
   "Scan the buffer and assign numbers.
 If NO-ECHO is non-nil, do not warn about duplicates.  This is to
@@ -769,12 +802,6 @@ be added to 'numbex-mode-hook', 'auto-save-hook' and
       (unless no-echo (numbex--echo-duplicates))))
   ;; Update the value of numbex--buffer-hash
   (setq numbex--buffer-hash (buffer-hash)))
-
-(defconst numbex--safe-number-items 1000
-  "The largest number of numbex items in a buffer considered safe.
-Numbex can deal with larger numbers than that, but in the
-interest of performance the refresh on idle timer should be
-disabled at a certain point.")
 
 (defvar numbex--idle-timer nil)
 
@@ -817,6 +844,12 @@ concerned."
           ;; function is called interactively or when it is evaluated
           ;; on auto-save and before-save-hook.
           (numbex-refresh t))))))
+
+(defconst numbex--safe-number-items 1000
+  "The largest number of numbex items in a buffer considered safe.
+Numbex can deal with larger numbers than that, but in the
+interest of performance the refresh on idle timer should be
+disabled at a certain point.")
 
 (defun numbex--count-and-ask ()
   "With more than 1000 items, ask whether to automatically refresh.
