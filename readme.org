@@ -336,8 +336,9 @@ If you want to change this default behavior, set the variables
 You might want to use the complex of examples and references you
 maintained with numbex in LaTeX.  ~numbex-convert-to-latex~ replaces
 every example item with ~\label{ex:<label>}~ and every reference item
-with ~\ref{ex:<label>}~.  To convert in the other direction, use
-~numbex-convert-from-latex~.
+with ~\ref{ex:<label>}~ (numbex delimiters are ignored to make sure the
+LaTeX output is syntactically correct).  To convert in the other
+direction, use ~numbex-convert-from-latex~.
 
 Also, you might want to export the notes you have maintained with
 numbex in another plain text file where the numbers are actual text
