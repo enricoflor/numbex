@@ -1,6 +1,5 @@
 #+title: numbex.el
 #+author: Enrico Flor
-#+startup: content
 
 [[https://melpa.org/#/numbex][file:https://melpa.org/packages/numbex-badge.svg]]
 
@@ -95,100 +94,19 @@ inside an item: if you add any, they will be automatically removed.
 (This is to make sure that an item never ends up broken in different
 lines, which would cause numbex not to recognize the item anymore.)
 
-While you can manipulate these items yourself (either manually or
+~numbex-previous-item~ and ~numbex-next-item~ are two commands that let
+you jump quickly between example items.
+
+While you can manipulate numbex items yourself (either manually or
 programmatically), it is much more convenient to use the command
 ~numbex-do~ (more on this below).
-
-*** Absolute vs. relative numbering of examples
-
-How examples are numbered when ~numbex-mode~ is first activated depends
-on the value of the variable ~numbex-relative-numbering~ (by default ~t~)
-and by ~numbex-numbering-reset-regexps~ (by default ~("")~).
-
-If ~numbex-relative-numbering~ is ~nil~, examples, whether labeled or not,
-are just numbered sequentially, starting with ~(1)~ on the very first
-example in the buffer.  The counter never restarts from ~(1)~.  The
-value of ~numbex-relative-numbering~ (a buffer-local variable) can be
-switched interactively with the command
-~numbex-toggle-relative-numbering~.
-
-The buffer-local variable ~numbex-numbering-reset-regexps~ is a list of
-regexps, each of whic determines where the numbering should restart.
-Its default value of ~("")~ means that the numbering only restarts at
-page breaks.  You can add to the list whatever regexp you want, and
-you can assign a value as a file local variable.  So for instance
-having this magic comment at the bottom of the buffer will cause the
-numbering to restart at each page break and at each 1st and 2nd level
-org-mode heading:
-
-#+begin_example
-;; Local Variables:
-;; numbex-numbering-reset-regexps: ("" "^\\*\\*+ ")
-;; End:
-#+end_example
-
-It is important to note that *only the numbering* is affected by
-~numbex-relative-numbering~.  This means that labels have to be unique
-across the buffer no matter how this variable is set, and that you can
-always reference examples outside of the /page/ or the narrowed
-buffered, if you have the label, and that the number on such reference
-will be the one that the example you are referencing has---and this
-could cause local ambiguities (with relative numbering, there can be
-several distinct examples in the buffer that are numbered with, say,
-~(1)~).  Furthermore, since the information about the buffer is always
-retrievable, you will always get the context of an example you are
-referencing, even with relative numbering and when referencing an
-example that is outside of the accessible portion of the buffer.
-
-*** Numbering of references
-
-The numbering of references depends on several factors.  Labeled
-reference items (like ~{[rex:first-example]}~) inherit the same number
-as the corresponding example item (in this case,
-~{[ex:first-example]}~).  Unlabeled ones (like ~{[rex:]}~) receive the
-same number as the example item immediately preceding them.
-
-The special reference items ~pex:~ and ~nex:~, automatically receive an
-uninformative label corresponding to the number they are assigned.
-This is because numbex automatically assigns to them the same number
-as the example that immediately precedes or follows them
-(respectively).  If the state of the buffer changes as to which
-example precedes or follows them, their label will change accordingly.
-This is why it would make no sense (and in a way it would be
-confusing) them to have a label: if any label is found, ~numbex~ will
-remove it.  However, if you edit a ~pex:~ or ~nex:~ item with ~numbex-do~,
-it will be automatically converted in a regular reference item with
-the new label you selected.  So point is on ~{[pex:]}~, selecting
-/example/ as a label with ~numbex-do~ will replace the item with
-~{[rex:example]}~.
-
-Assuming that this is the whole buffer:
-
-#+begin_example
-{[ex:]} Odd example
-{[ex:second-example]} One example.
-{[ex:first-example]} Another example.
-
-If you look at {[rex:second-example]} you will see that {[pex:]}...
-#+end_example
-
-this is how ~numbex~ will number the items:
-
-#+begin_example
-(1) Odd example.
-(2) One example.
-(3) Another example.
-
-If you look at (2) you will see that (3)...
-#+end_example
 
 *** Creating and editing items with ~numbex-do~
 
 The main command provided by numbex-mode is ~numbex-do~.  How this
-command behaves depends entirely on whether it is invoked while point
-is on an already existing item or not: in the former case, it will let
-you edit the item, in the latter, you will be guided in creating a new
-one.
+command behaves depends on whether it is invoked while point is on an
+already existing item or not: in the former case, it will let you edit
+the item, in the latter, you will be guided in creating a new one.
 
 If point is not already on an item, ~numbex-do~ will prompt the choice
 of which item to create:
@@ -242,6 +160,125 @@ a bad idea) or let ~numbex~ make the label you wish unique by
 automatically adding a numerical suffix.
 
 [[./screenshots/numbex-uniquify.png]]
+
+*** Numbering of references
+
+The numbering of references depends on several factors.  Labeled
+reference items (like ~{[rex:first-example]}~) inherit the same number
+as the corresponding example item (in this case,
+~{[ex:first-example]}~).  Unlabeled ones (like ~{[rex:]}~) receive the
+same number as the example item immediately preceding them.
+
+The special reference items ~pex:~ and ~nex:~, automatically receive an
+uninformative label corresponding to the number they are assigned.
+This is because numbex automatically assigns to them the same number
+as the example that immediately precedes or follows them
+(respectively).  If the state of the buffer changes as to which
+example precedes or follows them, their label will change accordingly.
+This is why it would make no sense (and in a way it would be
+confusing) them to have a label: if any label is found, ~numbex~ will
+remove it.  However, if you edit a ~pex:~ or ~nex:~ item with ~numbex-do~,
+it will be automatically converted in a regular reference item with
+the new label you selected.  So point is on ~{[pex:]}~, selecting
+/example/ as a label with ~numbex-do~ will replace the item with
+~{[rex:example]}~.
+
+Assuming that this is the whole buffer:
+
+#+begin_example
+{[ex:]} Odd example
+{[ex:second-example]} One example.
+{[ex:first-example]} Another example.
+
+If you look at {[rex:second-example]} you will see that {[pex:]}...
+#+end_example
+
+this is how ~numbex~ will number the items:
+
+#+begin_example
+(1) Odd example.
+(2) One example.
+(3) Another example.
+
+If you look at (2) you will see that (3)...
+#+end_example
+
+*** All interactive commands
+
+All the interactive commands are listed below.  The user can choose a
+prefix for ~numbex-command-map~ and then bind commands to keys in that
+map.
+
++ ~numbex-do~
++ ~numbex-search~
++ ~numbex-refresh~
++ ~numbex-next-example~
++ ~numbex-previous-example~
++ ~numbex-toggle-display~
++ ~numbex-toggle-relative-numbering~
++ ~numbex-write-out-numbers~
++ ~numbex-convert-to-latex~
++ ~numbex-convert-from-latex~
++ ~numbex-edit~
++ ~numbex-new-item~
++ ~numbex-new-example~
++ ~numbex-new-reference~
++ ~numbex-new-reference-to-previous~
++ ~numbex-new-reference-to-next~
+
+** Appearance
+*** Absolute vs. relative numbering of examples
+
+How examples are numbered when ~numbex-mode~ is first activated depends
+on the value of the variable ~numbex-relative-numbering~ (by default ~t~)
+and by ~numbex-numbering-reset-regexps~ (by default ~("")~).
+
+If ~numbex-relative-numbering~ is ~nil~, examples, whether labeled or not,
+are just numbered sequentially, starting with ~(1)~ on the very first
+example in the buffer.  The counter never restarts from ~(1)~.  The
+value of ~numbex-relative-numbering~ (a buffer-local variable) can be
+switched interactively with the command
+~numbex-toggle-relative-numbering~.
+
+The buffer-local variable ~numbex-numbering-reset-regexps~ is a list of
+regexps, each of which determines where the numbering should restart.
+Its default value of ~("")~ means that the numbering only restarts at
+page breaks.  You can add to the list whatever regexp you want, and
+you can assign a value as a file local variable.  So for instance
+having this magic comment at the bottom of the buffer will cause the
+numbering to restart at each page break and at each 1st and 2nd level
+org-mode heading:
+
+#+begin_example
+;; Local Variables:
+;; numbex-numbering-reset-regexps: ("" "^\\*\\*+ ")
+;; End:
+#+end_example
+
+It is important to note that *only the numbering* is affected by
+~numbex-relative-numbering~.  This means that labels have to be unique
+across the buffer no matter how this variable is set, and that you can
+always reference examples outside of the /page/ or the narrowed
+buffered, if you have the label, and that the number on such reference
+will be the one that the example you are referencing has---and this
+could cause local ambiguities (with relative numbering, there can be
+several distinct examples in the buffer that are numbered with, say,
+~(1)~).  Furthermore, since the information about the buffer is always
+retrievable, you will always get the context of an example you are
+referencing, even with relative numbering and when referencing an
+example that is outside of the accessible portion of the buffer.
+*** Delimiters
+The variable ~numbex-delimiters~ is a cons cell of strings determining
+the appearance of the items.  The default value is ~("(" . ")")~, which
+means that the numbers appear between parentheses.  This value can be
+set file locally.  For example, if I want numbers to be between
+brackets like ~[1]~, I can add:
+
+#+begin_example
+;; Local Variables:
+;; numbex-delimiters: ("[" . "]")
+;; End:
+#+end_example
 
 ** Other conveniences
 
@@ -299,7 +336,7 @@ If you want to change this default behavior, set the variables
 You might want to use the complex of examples and references you
 maintained with numbex in LaTeX.  ~numbex-convert-to-latex~ replaces
 every example item with ~\label{ex:<label>}~ and every reference item
-with ~(\ref{ex:<label>})~.  To convert in the other direction, use
+with ~\ref{ex:<label>}~.  To convert in the other direction, use
 ~numbex-convert-from-latex~.
 
 Also, you might want to export the notes you have maintained with
@@ -352,10 +389,3 @@ on the idle-timer every 0.3 seconds.  It is unlikely, however, that
 you will ever have this many examples and references in a single
 buffer.  If you plan to keep notes with more than /ten thousand/
 items... it's better if you don't use ~numbex-mode~ at all.
-
-** Example ~use-package~ declaration
-#+begin_src emacs-lisp
-(use-package numbex
-  :custom
-  ())
-#+end_src

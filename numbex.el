@@ -690,7 +690,8 @@ accessible portion of the buffer."
   (numbex--add-numbering))
 
 (defun numbex-convert-to-latex ()
-  "Replace all numbex items into corresponding LaTeX macros."
+  "Replace all numbex items into corresponding LaTeX macros.
+Delimiters (the value of 'numbex-delimiters') are ignored."
   (interactive)
   (numbex--scan-buffer)
   (numbex--add-numbering)
@@ -721,7 +722,7 @@ accessible portion of the buffer."
                        (match-end 0))
         (insert "{[ex:" label "]}")))
     (goto-char (point-min))
-    (while (re-search-forward "(\\\\ref{ex:\\([^\\]*\\)})" nil t)
+    (while (re-search-forward "\\\\ref{ex:\\([^\\]*\\)}" nil t)
       (let ((label (match-string-no-properties 1)))
         (goto-char (match-beginning 0))
         (delete-region (match-beginning 0)
