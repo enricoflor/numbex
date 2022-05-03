@@ -5,7 +5,7 @@
 ;; Author: Enrico Flor <enrico@eflor.net>
 ;; Maintainer: Enrico Flor <enrico@eflor.net>
 ;; URL: https://github.com/enricoflor/numbex
-;; Version: 0.3.0
+;; Version: 0.4.0
 ;; Package-Requires: ((emacs "26.1"))
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
@@ -173,6 +173,20 @@ file-local variable (for example, with
   :group 'numbex)
 
 (make-variable-buffer-local 'numbex-numbering-reset-regexps)
+
+(defconst numbex--safe-number-items 1000
+  "The largest number of numbex items in a buffer considered safe.
+Numbex can deal with larger numbers than that, but in the
+interest of performance the refresh on idle timer should be
+disabled at a certain point.")
+
+(defcustom numbex-delimiters '("(" . ")")
+  "Opening and closing characters used around numbers.
+Set two empty strings if you just want the number."
+  :type '(cons string string)
+  :group 'numbex)
+
+(make-variable-buffer-local 'numbex-delimiters)
 
 (defvar-local numbex--items-list nil
   "List of all items and reset regexps in the buffer.
@@ -689,6 +703,85 @@ accessible portion of the buffer."
            (occur "{\\[[r]?ex:\s*\\]}"))))
   (numbex--add-numbering))
 
+(defun numbex--echo-duplicates ()
+  "Display existing non-unique labels in the echo area."
+  (when numbex--duplicates
+    (if (= (length numbex--duplicates) 1)
+        (message (concat ""
+                         "1 duplicate label found: "
+                         (car numbex--duplicates)))
+      (message (concat (format  "%s duplicate labels found: "
+                                (length numbex--duplicates))
+                       (mapconcat #'identity numbex--duplicates "  "))))))
+
+(defvar-local numbex--buffer-hash nil
+  "Store value of 'buffer-hash' buffer-locally.")
+
+(defun numbex-refresh (&optional no-echo)
+  "Scan the buffer and assign numbers.
+If NO-ECHO is non-nil, do not warn about duplicates.  This is to
+be added to 'numbex-mode-hook', 'auto-save-hook' and
+'before-save-hook'."
+  (interactive)
+  ;; Check whether a file-local variable specifies a value for
+  ;; 'numbex-delimiters'.  If it does, set that value.
+  (when (assoc 'numbex-delimiters file-local-variables-alist)
+    (setq numbex-delimiters
+          (cdr (assoc 'numbex-delimiters file-local-variables-alist))))
+  (let ((hidden numbex--hidden-labels)
+        (old-items-list numbex--items-list))
+    (numbex--scan-buffer)
+    ;; Now 'numbex--items-list' has been updated: do nothing if the
+    ;; new value is the same as the old one.
+    (unless (= (sxhash-equal old-items-list) (sxhash-equal numbex--items-list))
+      (numbex--add-numbering)
+      (unless hidden (numbex--remove-numbering))
+      (unless no-echo (numbex--echo-duplicates))))
+  ;; Update the value of numbex--buffer-hash
+  (setq numbex--buffer-hash (buffer-hash)))
+
+(defvar numbex--idle-timer nil)
+
+(defun numbex--timed ()
+  "Housekeeping function to be evaluated on 'numbex--idle-timer'.
+If not in 'numbex-mode' or 'numbex--hidden-labels' is nil, do
+nothing.  Otherwise, if point is on an item, display its label
+and, if appropriate, the context of the referenced example in the
+echo area.  If point is not on an item, evaluate
+'numbex--scan-buffer' and 'numbex--add-numbering' so that the
+appearance of the buffer is kept up to date as far as numbex is
+concerned."
+  (when (and numbex-mode numbex--hidden-labels)
+    (let ((item (numbex--item-at-point)))
+      (if item
+          ;; Point is on an item: show the underlying label.  If the
+          ;; item is a reference, show the context of the
+          ;; corresponding example as well.
+          (let* ((type (cdr item))
+                 (label (buffer-substring-no-properties (car (car item))
+                                                        (cdr (car item)))))
+            (if (equal type "ex")
+                (message label)
+              (message (concat label ": "
+                               (gethash label numbex--label-line " ")))))
+        ;; Point is not on an item, just rescan the buffer and
+        ;; renumber the items.  Do it only if this wouldn't cripple
+        ;; everything.
+        (unless (or (> numbex--total-number-of-items numbex--safe-number-items)
+                    (not numbex--automatic-refresh)
+                    ;; If (buffer-hash) is the same as the stored
+                    ;; value, it means the buffer hasn't changed, so
+                    ;; don't do anything!  The value of
+                    ;; 'numbex--buffer-hash' is updated by
+                    ;; 'numbex-refresh'
+                    (equal (buffer-hash) numbex--buffer-hash))
+          ;; Giving t as an argument prevents 'numbex-refresh' to
+          ;; annoy the user with messages in the echo area about
+          ;; duplicate labels.  They will only be shown if the
+          ;; function is called interactively or when it is evaluated
+          ;; on auto-save and before-save-hook.
+          (numbex-refresh t))))))
+
 (defun numbex-convert-to-latex ()
   "Replace all numbex items into corresponding LaTeX macros.
 Delimiters (the value of 'numbex-delimiters') are ignored."
@@ -758,99 +851,6 @@ Delimiters (the value of 'numbex-delimiters') are ignored."
           (insert number)))
       (write-file unique-new-name)
       (kill-current-buffer))))
-
-(defun numbex--echo-duplicates ()
-  "Display existing non-unique labels in the echo area."
-  (when numbex--duplicates
-    (if (= (length numbex--duplicates) 1)
-        (message (concat ""
-                         "1 duplicate label found: "
-                         (car numbex--duplicates)))
-      (message (concat (format  "%s duplicate labels found: "
-                                (length numbex--duplicates))
-                       (mapconcat #'identity numbex--duplicates "  "))))))
-
-(defvar-local numbex--buffer-hash nil
-  "Store value of 'buffer-hash' buffer-locally.")
-
-(defcustom numbex-delimiters '("(" . ")")
-  "Opening and closing characters used around numbers.
-Set two empty strings if you just want the number."
-  :type '(cons string string)
-  :group 'numbex)
-
-(make-variable-buffer-local 'numbex-delimiters)
-
-(defun numbex-refresh (&optional no-echo)
-  "Scan the buffer and assign numbers.
-If NO-ECHO is non-nil, do not warn about duplicates.  This is to
-be added to 'numbex-mode-hook', 'auto-save-hook' and
-'before-save-hook'."
-  (interactive)
-  ;; Check whether a file-local variable specifies a value for
-  ;; 'numbex-delimiters'.  If it does, set that value.
-  (when (assoc 'numbex-delimiters file-local-variables-alist)
-    (setq numbex-delimiters
-          (cdr (assoc 'numbex-delimiters file-local-variables-alist))))
-  (let ((hidden numbex--hidden-labels)
-        (old-items-list numbex--items-list))
-    (numbex--scan-buffer)
-    ;; Now 'numbex--items-list' has been updated: do nothing if the
-    ;; new value is the same as the old one.
-    (unless (= (sxhash-equal old-items-list) (sxhash-equal numbex--items-list))
-      (numbex--add-numbering)
-      (unless hidden (numbex--remove-numbering))
-      (unless no-echo (numbex--echo-duplicates))))
-  ;; Update the value of numbex--buffer-hash
-  (setq numbex--buffer-hash (buffer-hash)))
-
-(defvar numbex--idle-timer nil)
-
-(defun numbex--timed ()
-  "Housekeeping function to be evaluated on 'numbex--idle-timer'.
-If not in 'numbex-mode' or 'numbex--hidden-labels' is nil, do
-nothing.  Otherwise, if point is on an item, display its label
-and, if appropriate, the context of the referenced example in the
-echo area.  If point is not on an item, evaluate
-'numbex--scan-buffer' and 'numbex--add-numbering' so that the
-appearance of the buffer is kept up to date as far as numbex is
-concerned."
-  (when (and numbex-mode numbex--hidden-labels)
-    (let ((item (numbex--item-at-point)))
-      (if item
-          ;; Point is on an item: show the underlying label.  If the
-          ;; item is a reference, show the context of the
-          ;; corresponding example as well.
-          (let* ((type (cdr item))
-                 (label (buffer-substring-no-properties (car (car item))
-                                                        (cdr (car item)))))
-            (if (equal type "ex")
-                (message label)
-              (message (concat label ": "
-                               (gethash label numbex--label-line " ")))))
-        ;; Point is not on an item, just rescan the buffer and
-        ;; renumber the items.  Do it only if this wouldn't cripple
-        ;; everything.
-        (unless (or (> numbex--total-number-of-items numbex--safe-number-items)
-                    (not numbex--automatic-refresh)
-                    ;; If (buffer-hash) is the same as the stored
-                    ;; value, it means the buffer hasn't changed, so
-                    ;; don't do anything!  The value of
-                    ;; 'numbex--buffer-hash' is updated by
-                    ;; 'numbex-refresh'
-                    (equal (buffer-hash) numbex--buffer-hash))
-          ;; Giving t as an argument prevents 'numbex-refresh' to
-          ;; annoy the user with messages in the echo area about
-          ;; duplicate labels.  They will only be shown if the
-          ;; function is called interactively or when it is evaluated
-          ;; on auto-save and before-save-hook.
-          (numbex-refresh t))))))
-
-(defconst numbex--safe-number-items 1000
-  "The largest number of numbex items in a buffer considered safe.
-Numbex can deal with larger numbers than that, but in the
-interest of performance the refresh on idle timer should be
-disabled at a certain point.")
 
 (defun numbex--count-and-ask ()
   "With more than 1000 items, ask whether to automatically refresh.
