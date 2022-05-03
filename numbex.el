@@ -181,14 +181,6 @@ Updated by 'numbex--scan-buffer'.")
 (defvar-local numbex--annotation-alist '()
   "Alist mapping labels to strings of number and context.")
 
-(defcustom numbex-delimiters '("(" . ")")
-  "Opening and closing characters used around numbers.
-Set two empty strings if you just want the number."
-  :type '(cons string string)
-  :group 'numbex)
-
-(make-variable-buffer-local 'numbex-delimiters)
-
 (defun numbex--scan-buffer ()
   "Collect information relevant for numbex from the buffer.
 Remove all whitespace from items.  Reset the values for the
@@ -198,11 +190,6 @@ narrowed, numbex will behave taking into consideration the entire
 buffer.  This reduces the risk of working on a narrowed buffer
 and ending up with many duplicate labels or mistaken references
 once the buffer is widened again."
-  ;; Check whether a file-local variable specifies a value for
-  ;; 'numbex-delimiters'.  If it does, set that value.
-  (when (assoc 'numbex-delimiters file-local-variables-alist)
-    (setq numbex-delimiters
-          (cdr (assoc 'numbex-delimiters file-local-variables-alist))))
   ;; Recreate the two hash tables with the size of the last value of
   ;; 'numbex--existing-labels'
   (let* ((old-number-labels (length numbex--existing-labels))
@@ -351,7 +338,7 @@ font-lock-faces."
         (when (looking-at (concat (car numbex-delimiters)
                                   "[\\.]+"
                                   (cdr numbex-delimiters)))
-          (goto-char (match-end 0)))
+          (delete-region (match-beginning 0) (match-end 0)))
         (set-text-properties b (point) nil)
         (when (or (equal type "ex") (equal type "rex") (not no-colors))
           (numbex--highlight lab type b (point))))))
@@ -586,7 +573,7 @@ Do nothing if point is currently on a numbex item."
 
 Do nothing if point is currently on a numbex item."
   (interactive)
-  (unless (numbex--item-at-point)
+  (when (numbex--item-at-point)
     (user-error "Point is on an existing numbex item"))
   (let ((choice (read-multiple-choice "Insert new:"
                                       '((?e "example")
@@ -785,12 +772,25 @@ accessible portion of the buffer."
 (defvar-local numbex--buffer-hash nil
   "Store value of 'buffer-hash' buffer-locally.")
 
+(defcustom numbex-delimiters '("(" . ")")
+  "Opening and closing characters used around numbers.
+Set two empty strings if you just want the number."
+  :type '(cons string string)
+  :group 'numbex)
+
+(make-variable-buffer-local 'numbex-delimiters)
+
 (defun numbex-refresh (&optional no-echo)
   "Scan the buffer and assign numbers.
 If NO-ECHO is non-nil, do not warn about duplicates.  This is to
 be added to 'numbex-mode-hook', 'auto-save-hook' and
 'before-save-hook'."
   (interactive)
+  ;; Check whether a file-local variable specifies a value for
+  ;; 'numbex-delimiters'.  If it does, set that value.
+  (when (assoc 'numbex-delimiters file-local-variables-alist)
+    (setq numbex-delimiters
+          (cdr (assoc 'numbex-delimiters file-local-variables-alist))))
   (let ((hidden numbex--hidden-labels)
         (old-items-list numbex--items-list))
     (numbex--scan-buffer)
