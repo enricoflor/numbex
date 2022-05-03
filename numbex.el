@@ -631,13 +631,16 @@ accessible portion of the buffer."
                                                     (cdr positions))
                   ""))
          (reg (concat "{\\[[pnr]?ex:" label "\\]}"))
-         (choice (read-multiple-choice "Look for:"
-                                       '((?a "all")
-                                         (?e "examples")
-                                         (?r "references")
-                                         (?d "duplicates")
-                                         (?u "unlabeled")))))
-    (when positions (cons '(?l "label at point") choice))
+         (options '((?a "all")
+                    (?e "examples")
+                    (?r "references")
+                    (?d "duplicates")
+                    (?u "unlabeled")))
+         (choice (if positions
+                     (read-multiple-choice "Look for:"
+                                           (cons '(?l "label at point")
+                                                 options))
+                   (read-multiple-choice "Look for:" options))))
     (cond ((equal choice '(?a "all"))
            (occur numbex--item-re))
           ((equal choice '(?e "examples"))
