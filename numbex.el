@@ -344,14 +344,17 @@ font-lock-faces."
     (goto-char (point-min))
     (while (re-search-forward numbex--item-re nil t)
       (let ((b (match-beginning 0))
-            (e (match-end 0))
             (type (buffer-substring-no-properties (match-beginning 1)
                                                   (match-end 1)))
             (lab (buffer-substring-no-properties (match-beginning 2)
                                                  (match-end 2))))
-        (set-text-properties b e nil)
+        (when (looking-at (concat (car numbex-delimiters)
+                                  "[\\.]+"
+                                  (cdr numbex-delimiters)))
+          (goto-char (match-end 0)))
+        (set-text-properties b (point) nil)
         (when (or (equal type "ex") (equal type "rex") (not no-colors))
-          (numbex--highlight lab type b e)))))
+          (numbex--highlight lab type b (point))))))
   (numbex--toggle-font-lock-keyword)
   (setq numbex--hidden-labels nil))
 
@@ -368,8 +371,7 @@ Set 'numbex-hidden-labels' to t."
     (let ((previous-ex-n "(1)"))
       (while (re-search-forward numbex--item-re nil t)
         ;; Add to the total number first
-        (setq numbex--total-number-of-items
-              (1+ numbex--total-number-of-items))
+        (setq numbex--total-number-of-items (1+ numbex--total-number-of-items))
         (let ((b (match-beginning 0))
               (e (match-end 0))
               (type (buffer-substring-no-properties (match-beginning 1)
