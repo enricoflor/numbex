@@ -217,8 +217,6 @@ map.
 + ~numbex-toggle-display~
 + ~numbex-toggle-relative-numbering~
 + ~numbex-write-out-numbers~
-+ ~numbex-convert-to-latex~
-+ ~numbex-convert-from-latex~
 + ~numbex-edit~
 + ~numbex-new-item~
 + ~numbex-new-example~
@@ -291,9 +289,9 @@ item at point:
 #+CAPTION: Displaying the label in the echo area.
 [[./screenshots/numbex-display-label.png]]
 
-Right after any invocation of ~numbex-do~ you will be reminded in the
-echo area of the existence of duplicate labels (non-empty labels that
-are being used by more than one example item):
+Right after any invocation of ~numbex-do~ you will be reminded of the
+existence of duplicate labels (non-empty labels that are being used by
+more than one example item) in the echo area:
 
 #+CAPTION: Duplicate found warning in the echo area.
 [[./screenshots/numbex-duplicate-found.png]]
@@ -333,22 +331,15 @@ If you want to change this default behavior, set the variables
 
 *** Exporting
 
-You might want to use the complex of examples and references you
-maintained with numbex in LaTeX.  ~numbex-convert-to-latex~ replaces
-every example item with ~\label{ex:<label>}~ and every reference item
-with ~\ref{ex:<label>}~ (numbex delimiters are ignored to make sure the
-LaTeX output is syntactically correct).  To convert in the other
-direction, use ~numbex-convert-from-latex~.
-
-Also, you might want to export the notes you have maintained with
-numbex in another plain text file where the numbers are actual text
-content instead of text properties (for instance, you want to send a
-plain text email with numbered examples).  This is a destructive
-operation: it will necessarily remove information that cannot be
-restored (namely, the labels).  Therefore, ~numbex-write-out-numbers~
-will save the content of the buffer in a file (whose name is the name
-of the current buffer prefixed by ~nb-~), where all the numbex items
-are actually replaced by the numbers.
+You might want to export the notes you have maintained with numbex in
+another plain text file where the numbers are actual text content
+instead of text properties (for instance, you want to send a plain
+text email with numbered examples).  This is a destructive operation:
+it will necessarily remove information that cannot be restored
+(namely, the labels).  Therefore, ~numbex-write-out-numbers~ will save
+the content of the buffer in a file (whose name is the name of the
+current buffer prefixed by ~nb-~), where all the numbex items are
+actually replaced by the numbers.
 
 *** Searching
 

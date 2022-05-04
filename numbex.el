@@ -454,7 +454,8 @@ The suffix to be added is \"-NN\", where N is a digit."
         (label s))
     (while (member label l)
       (let ((suffix (concat "--" (format "%s" counter))))
-        (setq label (concat s suffix) counter (1+ counter))))
+        (setq label (concat s suffix)
+              counter (1+ counter))))
     label))
 
 (defun numbex--prompt-with-duplicate-label (label)
@@ -782,48 +783,6 @@ concerned."
           ;; on auto-save and before-save-hook.
           (numbex-refresh t))))))
 
-(defun numbex-convert-to-latex ()
-  "Replace all numbex items into corresponding LaTeX macros.
-Delimiters (the value of 'numbex-delimiters') are ignored."
-  (interactive)
-  (numbex--scan-buffer)
-  (numbex--add-numbering)
-  (save-excursion
-    (goto-char (point-min))
-    (while (re-search-forward numbex--item-re nil t)
-      (let ((label (match-string-no-properties 2))
-            (type (match-string-no-properties 1)))
-        (goto-char (match-beginning 0))
-        (delete-region (match-beginning 0) (match-end 0))
-        (when (looking-at (concat (car numbex-delimiters)
-                                    "[\\.\\?]+"
-                                    (cdr numbex-delimiters)))
-            (delete-region (match-beginning 0) (match-end 0)))
-        (if (equal type "ex")
-            (insert "\\label{ex:" label "}")
-          (insert "(\\ref{ex:" label "})"))))))
-
-(defun numbex-convert-from-latex ()
-  "Replace relevant LaTeX macros with corresponding numbex items."
-  (interactive)
-  (save-excursion
-    (goto-char (point-min))
-    (while (re-search-forward "\\\\label{ex:\\([^\\]*\\)}" nil t)
-      (let ((label (match-string-no-properties 1)))
-        (goto-char (match-beginning 0))
-        (delete-region (match-beginning 0)
-                       (match-end 0))
-        (insert "{[ex:" label "]}")))
-    (goto-char (point-min))
-    (while (re-search-forward "\\\\ref{ex:\\([^\\]*\\)}" nil t)
-      (let ((label (match-string-no-properties 1)))
-        (goto-char (match-beginning 0))
-        (delete-region (match-beginning 0)
-                       (match-end 0))
-        (insert "{[rex:" label "]}"))))
-  (when numbex--automatic-refresh
-    (numbex-refresh)))
-
 (defun numbex-write-out-numbers ()
   "Write buffer to new file replacing numbex items with numbers."
   (interactive)
@@ -859,8 +818,7 @@ Delimiters (the value of 'numbex-delimiters') are ignored."
     (goto-char (point-min))
     (setq numbex--total-number-of-items 0)
     (while (re-search-forward numbex--item-re nil t)
-      (setq numbex--total-number-of-items
-            (1+ numbex--total-number-of-items)))
+      (setq numbex--total-number-of-items (1+ numbex--total-number-of-items)))
     (when (and (> numbex--total-number-of-items numbex--safe-number-items)
                numbex--automatic-refresh)
       (let* ((question
