@@ -5,7 +5,7 @@
 ;; Author: Enrico Flor <enrico@eflor.net>
 ;; Maintainer: Enrico Flor <enrico@eflor.net>
 ;; URL: https://github.com/enricoflor/numbex
-;; Version: 0.4.0
+;; Version: 0.4.1
 ;; Package-Requires: ((emacs "26.1"))
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
@@ -340,94 +340,103 @@ nil) and by 'numbex--add-numbering'."
 (defun numbex--remove-numbering (&optional no-colors)
   "Remove all numbex text properties from the buffer.
 Set 'numbex--hidden-labels' to nil.  If NO-COLORS is t, don't set
-font-lock-faces."
-  (save-excursion
-    (goto-char (point-min))
-    (while (re-search-forward numbex--item-re nil t)
-      (let ((b (match-beginning 0))
-            (type (buffer-substring-no-properties (match-beginning 1)
-                                                  (match-end 1)))
-            (lab (buffer-substring-no-properties (match-beginning 2)
-                                                 (match-end 2))))
-        (when (looking-at (concat (car numbex-delimiters)
-                                  "[\\.]+"
-                                  (cdr numbex-delimiters)))
-          (delete-region (match-beginning 0) (match-end 0)))
-        (set-text-properties b (point) nil)
-        (when (or (equal type "ex") (equal type "rex") (not no-colors))
-          (numbex--highlight lab type b (point))))))
-  (numbex--toggle-font-lock-keyword)
-  (setq numbex--hidden-labels nil))
+font-lock-faces.
 
-(defun numbex--add-numbering ()
-  "Number items in the buffer as text properties.
-Set 'numbex-hidden-labels' to t."
-  (setq numbex--total-number-of-items 0)
-  ;; First, let's number the examples.  If the buffer is narrowed and
-  ;; 'numbex-relative-numbering' is t, we just need to number the examples in
-  ;; the buffer.
-  (with-current-buffer (clone-indirect-buffer nil nil t)
-    (widen)
-    (goto-char (point-min))
-    (let ((previous-ex-n "(1)"))
+Does not mark the buffer as modified."
+  (let ((buffer-was-modified (buffer-modified-p)))
+    (save-excursion
+      (goto-char (point-min))
       (while (re-search-forward numbex--item-re nil t)
-        ;; Add to the total number first
-        (setq numbex--total-number-of-items (1+ numbex--total-number-of-items))
         (let ((b (match-beginning 0))
-              (e (match-end 0))
               (type (buffer-substring-no-properties (match-beginning 1)
                                                     (match-end 1)))
-              (label (buffer-substring-no-properties (match-beginning 2)
-                                                     (match-end 2))))
+              (lab (buffer-substring-no-properties (match-beginning 2)
+                                                   (match-end 2))))
           (when (looking-at (concat (car numbex-delimiters)
                                     "[\\.]+"
                                     (cdr numbex-delimiters)))
             (delete-region (match-beginning 0) (match-end 0)))
-          (set-text-properties b e nil)
-          (cond ((equal type "ex")
-                 ;; As number, take the current car of
-                 ;; numbex--numbers-list:
-                 (let ((num (pop numbex--numbers-list)))
-                   (insert (replace-regexp-in-string "[[:digit:]]\\|\\?"
-                                                     "." num))
-                   (put-text-property b (point) 'display num)
-                   (numbex--highlight label type b (point))
-                   (setq previous-ex-n num)))
-                ;; If the item is {[rex:]}, without a label, give it
-                ;; the number of the closes example.  Otherwise, look
-                ;; up the hash table to find the number to give.  If
-                ;; no key corresponding to the label is found it means
-                ;; that the non-empty label is not being used by any
-                ;; example (yet), so the reference will appear as
-                ;; "(??)":
-                ((equal type "rex")
-                 (let ((num (if (string-blank-p label)
-                                previous-ex-n
-                              (gethash label
-                                       numbex--label-number
-                                       (concat (car numbex-delimiters)
-                                               "??"
-                                               (cdr numbex-delimiters))))))
-                   (insert (replace-regexp-in-string "[[:digit:]]\\|\\?"
-                                                     "." num))
-                   (put-text-property b (point) 'display num)
-                   (numbex--highlight label type b (point))))
-                ((equal type "pex")
-                 (insert (replace-regexp-in-string "[[:digit:]]\\|\\?" "."
-                                                   previous-ex-n))
-                 (put-text-property b (point) 'display previous-ex-n))
-                ((equal type "nex")
-                 (let ((num (if (car numbex--numbers-list)
-                                (car numbex--numbers-list)
-                              (concat (car numbex-delimiters)
-                                      "??"
-                                      (cdr numbex-delimiters)))))
-                   (insert (replace-regexp-in-string "[[:digit:]]\\|\\?"
-                                                     "." num))
-                   (put-text-property b (point) 'display num)))))))
-    (kill-buffer (current-buffer)))
-  (numbex--toggle-font-lock-keyword t)
-  (setq numbex--hidden-labels t))
+          (set-text-properties b (point) nil)
+          (when (or (equal type "ex") (equal type "rex") (not no-colors))
+            (numbex--highlight lab type b (point))))))
+    (numbex--toggle-font-lock-keyword)
+    (setq numbex--hidden-labels nil)
+    (unless buffer-was-modified (set-buffer-modified-p nil))))
+
+(defun numbex--add-numbering ()
+  "Number items in the buffer as text properties.
+Set 'numbex-hidden-labels' to t.
+
+Does not mark the buffer as modified."
+  (let ((buffer-was-modified (buffer-modified-p)))
+    (setq numbex--total-number-of-items 0)
+    ;; First, let's number the examples.  If the buffer is narrowed
+    ;; and 'numbex-relative-numbering' is t, we just need to number
+    ;; the examples in the buffer.
+    (with-current-buffer (clone-indirect-buffer nil nil t)
+      (widen)
+      (goto-char (point-min))
+      (let ((previous-ex-n "(1)"))
+        (while (re-search-forward numbex--item-re nil t)
+          ;; Add to the total number first
+          (setq numbex--total-number-of-items
+                (1+ numbex--total-number-of-items))
+          (let ((b (match-beginning 0))
+                (e (match-end 0))
+                (type (buffer-substring-no-properties (match-beginning 1)
+                                                      (match-end 1)))
+                (label (buffer-substring-no-properties (match-beginning 2)
+                                                       (match-end 2))))
+            (when (looking-at (concat (car numbex-delimiters)
+                                      "[\\.]+"
+                                      (cdr numbex-delimiters)))
+              (delete-region (match-beginning 0) (match-end 0)))
+            (set-text-properties b e nil)
+            (cond ((equal type "ex")
+                   ;; As number, take the current car of
+                   ;; numbex--numbers-list:
+                   (let ((num (pop numbex--numbers-list)))
+                     (insert (replace-regexp-in-string "[[:digit:]]\\|\\?"
+                                                       "." num))
+                     (put-text-property b (point) 'display num)
+                     (numbex--highlight label type b (point))
+                     (setq previous-ex-n num)))
+                  ;; If the item is {[rex:]}, without a label, give it
+                  ;; the number of the closes example.  Otherwise, look
+                  ;; up the hash table to find the number to give.  If
+                  ;; no key corresponding to the label is found it means
+                  ;; that the non-empty label is not being used by any
+                  ;; example (yet), so the reference will appear as
+                  ;; "(??)":
+                  ((equal type "rex")
+                   (let ((num (if (string-blank-p label)
+                                  previous-ex-n
+                                (gethash label
+                                         numbex--label-number
+                                         (concat (car numbex-delimiters)
+                                                 "??"
+                                                 (cdr numbex-delimiters))))))
+                     (insert (replace-regexp-in-string "[[:digit:]]\\|\\?"
+                                                       "." num))
+                     (put-text-property b (point) 'display num)
+                     (numbex--highlight label type b (point))))
+                  ((equal type "pex")
+                   (insert (replace-regexp-in-string "[[:digit:]]\\|\\?" "."
+                                                     previous-ex-n))
+                   (put-text-property b (point) 'display previous-ex-n))
+                  ((equal type "nex")
+                   (let ((num (if (car numbex--numbers-list)
+                                  (car numbex--numbers-list)
+                                (concat (car numbex-delimiters)
+                                        "??"
+                                        (cdr numbex-delimiters)))))
+                     (insert (replace-regexp-in-string "[[:digit:]]\\|\\?"
+                                                       "." num))
+                     (put-text-property b (point) 'display num)))))))
+      (kill-buffer (current-buffer)))
+    (numbex--toggle-font-lock-keyword t)
+    (setq numbex--hidden-labels t)
+    (unless buffer-was-modified (set-buffer-modified-p nil))))
 
 (defun numbex-toggle-relative-numbering ()
   "Toggle value of 'numbex-relative-numbering' (buffer-local)."
@@ -722,24 +731,28 @@ accessible portion of the buffer."
   "Scan the buffer and assign numbers.
 If NO-ECHO is non-nil, do not warn about duplicates.  This is to
 be added to 'numbex-mode-hook', 'auto-save-hook' and
-'before-save-hook'."
+'before-save-hook'.
+
+Does not mark the buffer as modified."
   (interactive)
-  ;; Check whether a file-local variable specifies a value for
-  ;; 'numbex-delimiters'.  If it does, set that value.
-  (when (assoc 'numbex-delimiters file-local-variables-alist)
-    (setq numbex-delimiters
-          (cdr (assoc 'numbex-delimiters file-local-variables-alist))))
-  (let ((hidden numbex--hidden-labels)
-        (old-items-list numbex--items-list))
-    (numbex--scan-buffer)
-    ;; Now 'numbex--items-list' has been updated: do nothing if the
-    ;; new value is the same as the old one.
-    (unless (= (sxhash-equal old-items-list) (sxhash-equal numbex--items-list))
-      (numbex--add-numbering)
-      (unless hidden (numbex--remove-numbering))
-      (unless no-echo (numbex--echo-duplicates))))
-  ;; Update the value of numbex--buffer-hash
-  (setq numbex--buffer-hash (buffer-hash)))
+  (let ((buffer-was-modified (buffer-modified-p)))
+    ;; Check whether a file-local variable specifies a value for
+    ;; 'numbex-delimiters'.  If it does, set that value.
+    (when (assoc 'numbex-delimiters file-local-variables-alist)
+      (setq numbex-delimiters
+            (cdr (assoc 'numbex-delimiters file-local-variables-alist))))
+    (let ((hidden numbex--hidden-labels)
+          (old-items-list numbex--items-list))
+      (numbex--scan-buffer)
+      ;; Now 'numbex--items-list' has been updated: do nothing if the
+      ;; new value is the same as the old one.
+      (unless (= (sxhash-equal old-items-list) (sxhash-equal numbex--items-list))
+        (numbex--add-numbering)
+        (unless hidden (numbex--remove-numbering))
+        (unless no-echo (numbex--echo-duplicates))))
+    ;; Update the value of numbex--buffer-hash
+    (setq numbex--buffer-hash (buffer-hash))
+    (unless buffer-was-modified (set-buffer-modified-p nil))))
 
 (defvar numbex--idle-timer nil)
 
@@ -830,14 +843,13 @@ Do you want to disable automatic refresh?
         (when choice (setq numbex--automatic-refresh nil))))))
 
 (defun numbex--toggle-font-lock-keyword (&optional add)
-  "Remove or add font-lock-keyword making numbex items invisible.
-If the value of ADD is t, add the keyword and set
-'numbex--hidden-labels' to t.  Otherwise, remove the keyword and
-set the same variable to nil.  Finally, refontify accessible
-portion of the buffer."
+  "Remove or add font-lock-keyword toggling invisibility of numbex items.
+If the value of ADD is t, add the keyword, otherwise remove it.
+Finally, refontify accessible portion of the buffer."
   (if add
       (font-lock-add-keywords
-       nil '(("{\\[[pnr]?ex:\\(.*?\\)\\]}" 0 '(face nil invisible t) append)))
+       nil '(("{\\[[pnr]?ex:\\(.*?\\)\\]}" 0
+              '(face nil invisible t) append)))
     (font-lock-remove-keywords
      nil '(("{\\[[pnr]?ex:\\(.*?\\)\\]}" 0 '(face nil invisible t) append))))
   (save-excursion (font-lock-fontify-region (point-min) (point-max))))
@@ -857,18 +869,19 @@ portion of the buffer."
       (progn
         (unless numbex--idle-timer
           (setq numbex--idle-timer (run-with-idle-timer 0.3 t #'numbex--timed)))
+        (numbex--count-and-ask)
+        ;; For the first time they are created, let the hash tables
+        ;; have the default size of 65
+        (setq numbex--label-line (make-hash-table :test 'equal)
+              numbex--label-number (make-hash-table :test 'equal))
+        (numbex--scan-buffer)
+        (numbex--add-numbering)
         ;; Numbex needs font-lock
         (unless font-lock-mode
           (font-lock-mode 1))
         (font-lock-add-keywords
          nil '(("{\\[[pnr]?ex:\\(.*?\\)\\]}" 0 '(face nil invisible t) append)))
         (save-excursion (font-lock-fontify-region (point-min) (point-max)))
-        (numbex--count-and-ask)
-        ;; For the first time they are created, let the hash tables
-        ;; have the default size of 65
-        (setq numbex--label-line (make-hash-table :test 'equal)
-              numbex--label-number (make-hash-table :test 'equal))
-        (numbex-refresh)
         (add-hook 'auto-save-hook #'numbex-refresh nil t)
         (add-hook 'before-save-hook #'numbex-refresh nil t))
     ;; leaving numbex-mode
