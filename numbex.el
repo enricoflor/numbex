@@ -55,7 +55,7 @@
 
 (defvar-local numbex--automatic-refresh t
   "If t, evaluate 'numbex-refresh' on idle timer and with other commands.
-Specifically, with 'numbex-toggle-display' and 'numbex-do'.  Even
+Specifically, with 'numbex-toggle-visibility' and 'numbex-dwim'.  Even
 if nil, 'numbex-refresh will be added to 'auto-save-hook' and
 'before-save-hook'.")
 
@@ -150,22 +150,21 @@ the first example item in the buffer (if 'numbex--hidden-labels'
 is t), the second item is the string over the second example
 item, and so on.")
 
-;; maybe "numbex-numbering-reset"?
-(defcustom numbex-relative-numbering t
+(defcustom numbex-numbering-reset t
   "If nil, the numbering never restarts in the buffer.
 If t, numbering restart at \"(1)\" at every regexp specified in
 'numbex-numbering-reset-regexps'.  This variable is made
 buffer-local its value can be toggled interactively with
-'numbex-toggle-relative-numbering'."
+'numbex-toggle-numbering-reset'."
   :type 'boolean
   :group 'numbex)
 
-(make-variable-buffer-local 'numbex-relative-numbering)
+(make-variable-buffer-local 'numbex-numbering-reset)
 
 (defcustom numbex-numbering-reset-regexps
   '("")
   "List of regexps at which numbering restarts.
-If the buffer-local value of 'numbex-relative-numbering' is t,
+If the buffer-local value of 'numbex-numbering-reset' is t,
 numbering restarts at \"(1)\" at each of the regexp in this list.
 The default value is the form-feed character (\"\f\" or \"\").
 
@@ -245,8 +244,8 @@ taking into consideration the entire buffer."
         (if (save-match-data
               (string-match delimiters-re (match-string-no-properties 0)))
             ;; We hit a delimiter character: If
-            ;; 'numbex-relative-numbering' is t, reset the counter to 1
-            (when numbex-relative-numbering (setq counter 1))
+            ;; 'numbex-numbering-reset' is t, reset the counter to 1
+            (when numbex-numbering-reset (setq counter 1))
           ;; We hit an item: first thing we do is removing whitespace.
           (let ((clean-label
                  (if (string-match "[[:space:]]"
@@ -271,7 +270,7 @@ taking into consideration the entire buffer."
             ;; it won't reset again at the next match.
             (when (equal type "ex")
               (when (and (not point-in-narrowing)
-                         numbex-relative-numbering
+                         numbex-numbering-reset
                          narrowed
                          (> (point) start-of-buffer))
                 (setq point-in-narrowing t
@@ -373,7 +372,7 @@ Does not mark the buffer as modified."
   (let ((buffer-was-modified (buffer-modified-p)))
     (setq numbex--total-number-of-items 0)
     ;; First, let's number the examples.  If the buffer is narrowed
-    ;; and 'numbex-relative-numbering' is t, we just need to number
+    ;; and 'numbex-numbering-reset' is t, we just need to number
     ;; the examples in the buffer.
     (with-current-buffer (clone-indirect-buffer nil nil t)
       (widen)
@@ -440,18 +439,16 @@ Does not mark the buffer as modified."
     (setq numbex--hidden-labels t)
     (unless buffer-was-modified (set-buffer-modified-p nil))))
 
-;; "numbex-toggle-numbering-reset"
-(defun numbex-toggle-relative-numbering ()
-  "Toggle value of 'numbex-relative-numbering' (buffer-local)."
+(defun numbex-toggle-numbering-reset ()
+  "Toggle value of 'numbex-numbering-reset' (buffer-local)."
   (interactive)
-  (if numbex-relative-numbering
-      (progn (setq numbex-relative-numbering nil)
+  (if numbex-numbering-reset
+      (progn (setq numbex-numbering-reset nil)
              (message "Relative numbering deactivated"))
-    (setq numbex-relative-numbering t)
+    (setq numbex-numbering-reset t)
     (message "Relative numbering activated")))
 
-;; "numbex-toggle-visibility"?
-(defun numbex-toggle-display ()
+(defun numbex-toggle-visibility ()
   "Remove numbers if they are present, add them otherwise."
   (interactive)
   (when numbex--automatic-refresh
@@ -620,8 +617,7 @@ Do nothing if point is currently on a numbex item."
            (insert "{[pex:]}")))
     (insert " ")))
 
-;; "numbex-dwim"
-(defun numbex-do ()
+(defun numbex-dwim ()
   "Insert a new item or edit the existing one at point."
   (interactive)
   (let ((hidden numbex--hidden-labels))
@@ -634,8 +630,7 @@ Do nothing if point is currently on a numbex item."
         (numbex--add-numbering)
       (numbex--remove-numbering))))
 
-;; "numbex-backward-example"
-(defun numbex-previous-example (&optional arg)
+(defun numbex-backward-example (&optional arg)
   "Move point to previous example item.
 Always skip an example item that is on the same line as point.
 Optional prefix ARG specifies how many examples backwards to jump
@@ -654,8 +649,7 @@ portion of the buffer."
   (unless (re-search-backward numbex--example-re nil t arg)
     (message "No previous example")))
 
-;; "numbex-forward-example"
-(defun numbex-next-example (&optional arg)
+(defun numbex-forward-example (&optional arg)
   "Move point to next example item.
 Optional prefix ARG specifies how many examples forwards to jump
 to.
@@ -677,8 +671,7 @@ portion of the buffer."
         (goto-char (match-beginning 0))
       (message "No previous example"))))
 
-;; "numbex-list"
-(defun numbex-search ()
+(defun numbex-list ()
   "Find items in the buffer through 'occur'.
 
 + \"a\" to return all items

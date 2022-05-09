@@ -32,15 +32,16 @@ conflict with the default behavior of ~org-mode~.  The fundamental idea
 behind ~numbex~ is that the buffer text proper doesn't contain any
 numbering itself, but only *numbex items* (that is, portions of buffer
 content a certain form): the numbering is added to the buffer as text
-properties.  The command ~numbex-toggle-display~ switches the buffer
+properties.  The command ~numbex-toggle-visibility~ switches the buffer
 back and forth from a state with and without the numbering.
 
 There are no preset default keybindings, but it is a good idea to
-define some for the two most common interactive commands: ~numbex-do~
-and ~numbex-toggle-display~.  The other interactive commands, explained
-below, are ~numbex-search~, ~numbex-refresh~,
-~numbex-toggle-relative-numbering~, ~numbex-convert-to-latex~,
-~numbex-convert-from-latex~ and ~numbex-write-out-numbers~.
+define some for the two most common interactive commands: ~numbex-dwim~
+(aka "do what I mean") and ~numbex-toggle-visibility~.  The other
+interactive commands, explained below, are ~numbex-list~,
+~numbex-refresh~, ~numbex-toggle-numbering-reset~,
+~numbex-convert-to-latex~, ~numbex-convert-from-latex~ and
+~numbex-write-out-numbers~.
 
 This [[https://github.com/jwiegley/use-package][use-package]] declaration illustrates all possible customizations:
 
@@ -52,7 +53,7 @@ This [[https://github.com/jwiegley/use-package][use-package]] declaration illust
   :custom
   (numbex-highlight-unlabeled t)
   (numbex-highlight-duplicates t)
-  (numbex-relative-numbering t)
+  (numbex-numbering-reset t)
   ;; Enclose numbers between parentheses
   (numbex-delimiters '("(" . ")"))
   ;; Restart numbering from "(1)" at each page break and at each top level
@@ -60,12 +61,12 @@ This [[https://github.com/jwiegley/use-package][use-package]] declaration illust
   (numbex-numbering-reset-regexps '("" "^\\* "))
   :bind
   (:map numbex-command-map
-	("RET" . numbex-do)		  ; new item or edit one at point
-	("s" . numbex-search)		  ; search items throuh 'occur'
-	("r" . numbex-toggle-relative-numbering)
-	("M-SPC" . numbex-toggle-display) ; show/hide underlying raw items
-	("M-p" . numbex-previous-example) ; jump to previous example
-	("M-n" . numbex-next-example)	  ; jump to next example
+	("RET" . numbex-dwim)		  ; new item or edit one at point
+	("s" . numbex-list)		  ; search items throuh 'occur'
+	("r" . numbex-toggle-numbering-reset)
+	("M-SPC" . numbex-toggle-visibility) ; show/hide underlying raw items
+	("M-p" . numbex-backward-example) ; jump to previous example
+	("M-n" . numbex-forward-example)	  ; jump to next example
 	("w" . numbex-write-out-numbers)  ; replace items with their number
 	("g" . numbex-refresh)))
 #+end_src
@@ -99,19 +100,19 @@ you jump quickly between example items.
 
 While you can manipulate numbex items yourself (either manually or
 programmatically), it is much more convenient to use the command
-~numbex-do~ (more on this below).
+~numbex-dwim~ (more on this below).
 
-*** Creating and editing items with ~numbex-do~
+*** Creating and editing items with ~numbex-dwim~
 
-The main command provided by numbex-mode is ~numbex-do~.  How this
+The main command provided by numbex-mode is ~numbex-dwim~.  How this
 command behaves depends on whether it is invoked while point is on an
 already existing item or not: in the former case, it will let you edit
 the item, in the latter, you will be guided in creating a new one.
 
-If point is not already on an item, ~numbex-do~ will prompt the choice
+If point is not already on an item, ~numbex-dwim~ will prompt the choice
 of which item to create:
 
-[[./screenshots/numbex-do-1.png]]
+[[./screenshots/numbex-dwim-1.png]]
 
 If you choose to create a reference, you will be offered completion
 with the labels that are already being used in the buffer, annotated
@@ -129,7 +130,7 @@ If you look at {[rex:second-example]} you will see that
 {[pex:]} and {[rex:]} resemble this sentence:
 #+end_example
 
-[[./screenshots/numbex-do-select-label-annotation.png]]
+[[./screenshots/numbex-dwim-select-label-annotation.png]]
 
 There is a caveat here: if there are two example items labeled with
 ~xyz~ in the buffer, only the first one will show up in the completion
@@ -138,9 +139,9 @@ selection involved in creating or editing a reference item.
 If creating an example, if you choose a label that is already being
 used you will be asked to confirm your choice:
 
-[[./screenshots/numbex-do-confirm.png]]
+[[./screenshots/numbex-dwim-confirm.png]]
 
-Evaluating ~numbex-do~ while point is on an item (regardless of whether
+Evaluating ~numbex-dwim~ while point is on an item (regardless of whether
 labels are currently displayed or not) lets you change the label of
 the item.  Again, if it's a reference, you will be able to use
 completion on the existing labels (with annotation, showing you the
@@ -150,7 +151,7 @@ you edit an example by providing a novel label, you will be asked
 whether you want to update the label of all the items that reference
 that example automatically.
 
-[[./screenshots/numbex-do-change-label.png]]
+[[./screenshots/numbex-dwim-change-label.png]]
 
 ~numbex~ really tries its best to make sure you use unique labels.  If,
 in editing or creating a new example, you try to give it a label that
@@ -177,10 +178,10 @@ as the example that immediately precedes or follows them
 example precedes or follows them, their label will change accordingly.
 This is why it would make no sense (and in a way it would be
 confusing) them to have a label: if any label is found, ~numbex~ will
-remove it.  However, if you edit a ~pex:~ or ~nex:~ item with ~numbex-do~,
+remove it.  However, if you edit a ~pex:~ or ~nex:~ item with ~numbex-dwim~,
 it will be automatically converted in a regular reference item with
 the new label you selected.  So point is on ~{[pex:]}~, selecting
-/example/ as a label with ~numbex-do~ will replace the item with
+/example/ as a label with ~numbex-dwim~ will replace the item with
 ~{[rex:example]}~.
 
 Assuming that this is the whole buffer:
@@ -209,13 +210,13 @@ All the interactive commands are listed below.  The user can choose a
 prefix for ~numbex-command-map~ and then bind commands to keys in that
 map.
 
-+ ~numbex-do~
-+ ~numbex-search~
++ ~numbex-dwim~
++ ~numbex-list~
 + ~numbex-refresh~
-+ ~numbex-next-example~
-+ ~numbex-previous-example~
-+ ~numbex-toggle-display~
-+ ~numbex-toggle-relative-numbering~
++ ~numbex-forward-example~
++ ~numbex-backward-example~
++ ~numbex-toggle-visibility~
++ ~numbex-toggle-numbering-reset~
 + ~numbex-write-out-numbers~
 + ~numbex-edit~
 + ~numbex-new-item~
@@ -228,15 +229,15 @@ map.
 *** Absolute vs. relative numbering of examples
 
 How examples are numbered when ~numbex-mode~ is first activated depends
-on the value of the variable ~numbex-relative-numbering~ (by default ~t~)
+on the value of the variable ~numbex-numbering-reset~ (by default ~t~)
 and by ~numbex-numbering-reset-regexps~ (by default ~("")~).
 
-If ~numbex-relative-numbering~ is ~nil~, examples, whether labeled or not,
+If ~numbex-numbering-reset~ is ~nil~, examples, whether labeled or not,
 are just numbered sequentially, starting with ~(1)~ on the very first
 example in the buffer.  The counter never restarts from ~(1)~.  The
-value of ~numbex-relative-numbering~ (a buffer-local variable) can be
+value of ~numbex-numbering-reset~ (a buffer-local variable) can be
 switched interactively with the command
-~numbex-toggle-relative-numbering~.
+~numbex-toggle-numbering-reset~.
 
 The buffer-local variable ~numbex-numbering-reset-regexps~ is a list of
 regexps, each of which determines where the numbering should restart.
@@ -254,7 +255,7 @@ org-mode heading:
 #+end_example
 
 It is important to note that *only the numbering* is affected by
-~numbex-relative-numbering~.  This means that labels have to be unique
+~numbex-numbering-reset~.  This means that labels have to be unique
 across the buffer no matter how this variable is set, and that you can
 always reference examples outside of the /page/ or the narrowed
 buffered, if you have the label, and that the number on such reference
@@ -289,7 +290,7 @@ item at point:
 #+CAPTION: Displaying the label in the echo area.
 [[./screenshots/numbex-display-label.png]]
 
-Right after any invocation of ~numbex-do~ you will be reminded of the
+Right after any invocation of ~numbex-dwim~ you will be reminded of the
 existence of duplicate labels (non-empty labels that are being used by
 more than one example item) in the echo area:
 
@@ -343,7 +344,7 @@ actually replaced by the numbers.
 
 *** Searching
 
-Finally, ~numbex-search~ is a convenient wrapper around ~occur~ that
+Finally, ~numbex-list~ is a convenient wrapper around ~occur~ that
 lets you examine the items in the buffer: use it to have, in other
 window, a grep-like overview of the lines that contain any item, any
 example, any reference, any item with a non-unique label, any
@@ -362,8 +363,8 @@ operation is performed automatically if the current buffer is in
   the way of your typing), if the buffer has changed;
 + when the buffer is saved or auto-saved;
 + right after any time one of these functions is evaluated:
-  + ~numbex-do~
-  + ~numbex-toggle-display~
+  + ~numbex-dwim~
+  + ~numbex-toggle-visibility~
 
 If you have less than a thousand numbex items in your buffer, you
 shouldn't notice any significant lag.  If you have 500,
