@@ -150,6 +150,7 @@ the first example item in the buffer (if 'numbex--hidden-labels'
 is t), the second item is the string over the second example
 item, and so on.")
 
+;; maybe "numbex-numbering-reset"?
 (defcustom numbex-relative-numbering t
   "If nil, the numbering never restarts in the buffer.
 If t, numbering restart at \"(1)\" at every regexp specified in
@@ -439,6 +440,7 @@ Does not mark the buffer as modified."
     (setq numbex--hidden-labels t)
     (unless buffer-was-modified (set-buffer-modified-p nil))))
 
+;; "numbex-toggle-numbering-reset"
 (defun numbex-toggle-relative-numbering ()
   "Toggle value of 'numbex-relative-numbering' (buffer-local)."
   (interactive)
@@ -448,6 +450,7 @@ Does not mark the buffer as modified."
     (setq numbex-relative-numbering t)
     (message "Relative numbering activated")))
 
+;; "numbex-toggle-visibility"?
 (defun numbex-toggle-display ()
   "Remove numbers if they are present, add them otherwise."
   (interactive)
@@ -617,6 +620,7 @@ Do nothing if point is currently on a numbex item."
            (insert "{[pex:]}")))
     (insert " ")))
 
+;; "numbex-dwim"
 (defun numbex-do ()
   "Insert a new item or edit the existing one at point."
   (interactive)
@@ -630,6 +634,7 @@ Do nothing if point is currently on a numbex item."
         (numbex--add-numbering)
       (numbex--remove-numbering))))
 
+;; "numbex-backward-example"
 (defun numbex-previous-example (&optional arg)
   "Move point to previous example item.
 Always skip an example item that is on the same line as point.
@@ -649,6 +654,7 @@ portion of the buffer."
   (unless (re-search-backward numbex--example-re nil t arg)
     (message "No previous example")))
 
+;; "numbex-forward-example"
 (defun numbex-next-example (&optional arg)
   "Move point to next example item.
 Optional prefix ARG specifies how many examples forwards to jump
@@ -671,6 +677,7 @@ portion of the buffer."
         (goto-char (match-beginning 0))
       (message "No previous example"))))
 
+;; "numbex-list"
 (defun numbex-search ()
   "Find items in the buffer through 'occur'.
 
