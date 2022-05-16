@@ -803,18 +803,35 @@ concerned."
           ;; on auto-save and before-save-hook.
           (numbex-refresh t))))))
 
-(defun numbex-write-out-numbers ()
-  "Write buffer to new file replacing numbex items with numbers."
-  (interactive)
+(defun numbex-write-out-numbers (&optional choose-mode)
+  "Replace items in current buffer with actual numbers in new buffer.
+Visit the new buffer in another window.
+
+If the region is active, the ouptut in the new buffer is
+restricted to the marked portion of the current buffer.
+
+If called with prefix argument CHOOSE-MODE, let the user choose
+the major mode for the new buffer; otherwise, the new buffer will
+be in the same major mode as the current buffer."
+  (interactive "P")
   (numbex--scan-buffer)
   (numbex--add-numbering)
   (let* ((original-buffer (current-buffer))
-         (new-buffer-name (concat "nb-" (format "%s" original-buffer)))
-         (unique-new-name (if (file-exists-p new-buffer-name)
-                              (generate-new-buffer-name new-buffer-name)
-                            new-buffer-name)))
-    (with-current-buffer (get-buffer-create unique-new-name)
-      (insert-buffer-substring-as-yank original-buffer)
+         (maj-mode (if choose-mode
+                       (intern (completing-read
+                                "Major Mode: "
+                                (mapcar 'cdr auto-mode-alist)
+                                nil t "" nil nil "text-mode"))
+                     major-mode))
+         (beg-end (if (region-active-p)
+                      (cons (region-beginning) (region-end))
+                    (cons (point-min) (point-max))))
+         (new-buffer-name (generate-new-buffer-name
+                           (concat "nb-" (format "%s" original-buffer)))))
+    (get-buffer-create new-buffer-name)
+    (with-current-buffer new-buffer-name (funcall maj-mode))
+    (insert-into-buffer new-buffer-name (car beg-end) (cdr beg-end))
+    (with-current-buffer new-buffer-name
       (goto-char (point-min))
       (while (re-search-forward numbex--item-re nil t)
         (let* ((b (match-beginning 0))
@@ -827,9 +844,8 @@ concerned."
                                     "[\\.\\?]+"
                                     (cdr numbex-delimiters)))
             (delete-region (match-beginning 0) (match-end 0)))
-          (insert number)))
-      (write-file unique-new-name)
-      (kill-current-buffer))))
+          (insert number))))
+    (switch-to-buffer-other-window new-buffer-name)))
 
 (defun numbex--count-and-ask ()
   "With too many items in the buffer, ask whether to automatically refresh.
