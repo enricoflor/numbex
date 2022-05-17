@@ -630,46 +630,70 @@ Do nothing if point is currently on a numbex item."
         (numbex--add-numbering)
       (numbex--remove-numbering))))
 
-(defun numbex-backward-example (&optional arg)
-  "Move point to previous example item.
-Always skip an example item that is on the same line as point.
-Optional prefix ARG specifies how many examples backwards to jump
-to.
-
-Do nothing if there is no previous example item in the accessible
-portion of the buffer."
-  (interactive "p")
-  (save-excursion
-    (beginning-of-line)
-    (unless (re-search-backward numbex--example-re nil t arg)
-      (if (> arg 1)
-          (user-error (format "No %s previous examples" arg))
-        (user-error "No previous example"))))
-  (beginning-of-line)
-  (unless (re-search-backward numbex--example-re nil t arg)
-    (message "No previous example")))
-
-(defun numbex-forward-example (&optional arg)
+(defun numbex-forward-example (&optional count)
   "Move point to next example item.
-Optional prefix ARG specifies how many examples forwards to jump
+Optional prefix COUNT specifies how many examples forwards to jump
 to.
 
 Do nothing if there is no next example item in the accessible
 portion of the buffer."
   (interactive "p")
-  (let ((item-at-point (numbex--item-at-point)))
-    (save-excursion
-      (when (string-equal "ex" (cdr item-at-point))
-        (goto-char (cdar item-at-point)))
-      (unless (re-search-forward numbex--example-re nil t arg)
-        (if (> arg 1)
-            (user-error (format "No %s next examples" arg))
-          (user-error "No next example"))))
-    (when (string-equal "ex" (cdr item-at-point))
-      (goto-char (cdar item-at-point)))
-    (if (re-search-forward numbex--example-re nil t arg)
-        (goto-char (match-beginning 0))
-      (message "No previous example"))))
+  (let ((count (or count 1))
+        (pos (if (equal (cdr (numbex--item-at-point)) "ex")
+                 (caar (numbex--item-at-point))
+               nil)))
+    (if (eq count 0) (user-error nil)
+      (funcall #'numbex--jump-to-example count pos))))
+
+(defun numbex-backward-example (&optional count)
+  "Move point to previous example item.
+Always skip an example item that is on the same line as point.
+Optional prefix COUNT specifies how many examples backwards to jump
+to.
+
+Do nothing if there is no previous example item in the accessible
+portion of the buffer."
+  (interactive "p")
+  (let ((count (or count 1))
+        (pos (if (equal (cdr (numbex--item-at-point)) "ex")
+                 (caar (numbex--item-at-point))
+               nil)))
+    (if (eq count 0) (user-error nil)
+      (funcall #'numbex--jump-to-example (- count (* 2 count)) pos))))
+
+(defvar-local numbex--previous-movement-invisible '())
+
+(defun numbex--jump-to-example (count pos)
+  "Ciao COUNT POS."
+  ;; First check if we can move at all
+  (save-excursion
+    (when pos (goto-char pos))
+    (unless (re-search-forward numbex--example-re nil t count)
+      (let ((errormessage (cond ((< count -1)
+                                 (format "No %s previous examples" count))
+                                ((= count -1) "No previous example")
+                                ((= count 1) "No next example")
+                                ((> count 1)
+                                 (format "No %s next examples" count)))))
+        (setq numbex--previous-movement-invisible nil)
+        (user-error errormessage))))
+  (when pos (goto-char pos))
+  (re-search-forward numbex--example-re nil t count)
+  (let ((target (point))
+        (chain (or (eq last-command 'numbex-forward-example)
+                   (eq last-command 'numbex-backward-example))))
+    (unless chain (setq numbex--previous-movement-invisible nil))
+    (when (invisible-p target)
+      (push target numbex--previous-movement-invisible))
+    (message "prova1")
+    (when (and numbex--previous-movement-invisible
+               (fboundp 'outline-hide-subtree))
+      (dolist (x numbex--previous-movement-invisible)
+        (progn (goto-char x)
+               (outline-hide-subtree))))
+    (goto-char target)
+    (when (and (invisible-p target) (fboundp 'outline-show-subtree))
+     (outline-show-subtree))))
 
 (defun numbex-list ()
   "Find items in the buffer through 'occur'.
@@ -773,7 +797,9 @@ echo area.  If point is not on an item, evaluate
 appearance of the buffer is kept up to date as far as numbex is
 concerned."
   (when (and numbex-mode numbex--hidden-labels)
-    (let ((item (numbex--item-at-point)))
+    (let ((item (numbex--item-at-point))
+          ;; Let's not fill *Messages* with useless stuff
+          (message-log-max nil))
       (if item
           ;; Point is on an item: show the underlying label.  If the
           ;; item is a reference, show the context of the
