@@ -40,6 +40,7 @@
 ;;; Code:
 
 (require 'subr-x)
+(require 'outline)
 
 (defvar numbex-mode)
 
@@ -630,7 +631,7 @@ Do nothing if point is currently on a numbex item."
         (numbex--add-numbering)
       (numbex--remove-numbering))))
 
-(defun numbex-forward-example (&optional count)
+(defun numbex-forward-example-new (&optional count)
   "Move point to next example item.
 Optional prefix COUNT specifies how many examples forwards to jump
 to.
@@ -645,7 +646,7 @@ portion of the buffer."
     (if (eq count 0) (user-error nil)
       (funcall #'numbex--jump-to-example count pos))))
 
-(defun numbex-backward-example (&optional count)
+(defun numbex-backward-example-new (&optional count)
   "Move point to previous example item.
 Always skip an example item that is on the same line as point.
 Optional prefix COUNT specifies how many examples backwards to jump
@@ -664,7 +665,6 @@ portion of the buffer."
 (defvar-local numbex--previous-movement-invisible '())
 
 (defun numbex--jump-to-example (count pos)
-  "Ciao COUNT POS."
   ;; First check if we can move at all
   (save-excursion
     (when pos (goto-char pos))
@@ -679,21 +679,20 @@ portion of the buffer."
         (user-error errormessage))))
   (when pos (goto-char pos))
   (re-search-forward numbex--example-re nil t count)
-  (let ((target (point))
-        (chain (or (eq last-command 'numbex-forward-example)
-                   (eq last-command 'numbex-backward-example))))
+  (let* ((target-beginning (match-beginning 0))
+         (target-end (match-end 0))
+         (chain (or (eq last-command 'numbex-forward-example-new)
+                    (eq last-command 'numbex-backward-example-new))))
     (unless chain (setq numbex--previous-movement-invisible nil))
-    (when (invisible-p target)
-      (push target numbex--previous-movement-invisible))
-    (message "prova1")
-    (when (and numbex--previous-movement-invisible
-               (fboundp 'outline-hide-subtree))
+    (when numbex--previous-movement-invisible
       (dolist (x numbex--previous-movement-invisible)
-        (progn (goto-char x)
-               (outline-hide-subtree))))
-    (goto-char target)
-    (when (and (invisible-p target) (fboundp 'outline-show-subtree))
-     (outline-show-subtree))))
+        (goto-char (cdr x))
+        (outline-hide-subtree)))
+    (goto-char target-beginning)
+    (when (outline-invisible-p target-end)
+      (push (cons target-beginning target-end)
+            numbex--previous-movement-invisible)
+      (outline-show-subtree))))
 
 (defun numbex-list ()
   "Find items in the buffer through 'occur'.
