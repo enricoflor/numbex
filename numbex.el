@@ -631,7 +631,7 @@ Do nothing if point is currently on a numbex item."
         (numbex--add-numbering)
       (numbex--remove-numbering))))
 
-(defun numbex-forward-example-new (&optional count)
+(defun numbex-forward-example (&optional count)
   "Move point to next example item.
 Optional prefix COUNT specifies how many examples forwards to jump
 to.
@@ -646,7 +646,7 @@ portion of the buffer."
     (if (eq count 0) (user-error nil)
       (funcall #'numbex--jump-to-example count pos))))
 
-(defun numbex-backward-example-new (&optional count)
+(defun numbex-backward-example (&optional count)
   "Move point to previous example item.
 Always skip an example item that is on the same line as point.
 Optional prefix COUNT specifies how many examples backwards to jump
@@ -662,11 +662,25 @@ portion of the buffer."
     (if (eq count 0) (user-error nil)
       (funcall #'numbex--jump-to-example (- count (* 2 count)) pos))))
 
+;; When moving to an example item that is hidden (e.g. under a folded
+;; org-mode heading), a cons cell containing the buffer positions of
+;; the beginnin and the end of the item are added to this list.  This
+;; way, if you move further down or up in the buffer, the section that
+;; was opened just because you searched for an example item into it
+;; will be hidden again.  Every time a new movement "chain" is
+;; initiated this variable is reset to nil.
 (defvar-local numbex--previous-movement-invisible '())
 
 (defun numbex--jump-to-example (count pos)
-  ;; First check if we can move at all
+  "Jump to n example items forward or backward, where n is COUNT.
+
+POS is nil if point is not on a numbex example already, otherwise
+it is the buffer position of the beginning of the label of the
+example item at point."
+  ;; First let's check that there are enough example items to jump to.
   (save-excursion
+    ;; Go to the middle of the example item at point so that the search
+    ;; can work in the first place.
     (when pos (goto-char pos))
     (unless (re-search-forward numbex--example-re nil t count)
       (let ((errormessage (cond ((< count -1)
@@ -681,14 +695,20 @@ portion of the buffer."
   (re-search-forward numbex--example-re nil t count)
   (let* ((target-beginning (match-beginning 0))
          (target-end (match-end 0))
-         (chain (or (eq last-command 'numbex-forward-example-new)
-                    (eq last-command 'numbex-backward-example-new))))
-    (unless chain (setq numbex--previous-movement-invisible nil))
+         (chain (or (eq last-command 'numbex-forward-example)
+                    (eq last-command 'numbex-backward-example))))
+    ;; Don't bother making anything invisible if the previous command
+    ;; was not a movement command.
+    (unless chain (setq numbex--previous-movement-invisible '()))
     (when numbex--previous-movement-invisible
-      (dolist (x numbex--previous-movement-invisible)
-        (goto-char (cdr x))
-        (outline-hide-subtree)))
+      ;; Go to the example you had jumped right before getting here
+      ;; and close the subtree
+      (goto-char (cdar numbex--previous-movement-invisible))
+      (outline-hide-subtree))
     (goto-char target-beginning)
+    ;; Now that you are back to the actual target, if it is invisible
+    ;; open up the subtree and add this location to the record so that
+    ;; it will be made invisible again if you move further up or down.
     (when (outline-invisible-p target-end)
       (push (cons target-beginning target-end)
             numbex--previous-movement-invisible)
