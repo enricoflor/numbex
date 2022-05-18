@@ -112,7 +112,7 @@ the item, in the latter, you will be guided in creating a new one.
 If point is not already on an item, ~numbex-dwim~ will prompt the choice
 of which item to create:
 
-[[./screenshots/numbex-dwim-1.png]]
+[[./screenshots/numbex-do-1.png]]
 
 If you choose to create a reference, you will be offered completion
 with the labels that are already being used in the buffer, annotated
@@ -130,7 +130,7 @@ If you look at {[rex:second-example]} you will see that
 {[pex:]} and {[rex:]} resemble this sentence:
 #+end_example
 
-[[./screenshots/numbex-dwim-select-label-annotation.png]]
+[[./screenshots/numbex-do-select-label-annotation.png]]
 
 There is a caveat here: if there are two example items labeled with
 ~xyz~ in the buffer, only the first one will show up in the completion
@@ -139,7 +139,7 @@ selection involved in creating or editing a reference item.
 If creating an example, if you choose a label that is already being
 used you will be asked to confirm your choice:
 
-[[./screenshots/numbex-dwim-confirm.png]]
+[[./screenshots/numbex-do-confirm.png]]
 
 Evaluating ~numbex-dwim~ while point is on an item (regardless of whether
 labels are currently displayed or not) lets you change the label of
@@ -151,7 +151,7 @@ you edit an example by providing a novel label, you will be asked
 whether you want to update the label of all the items that reference
 that example automatically.
 
-[[./screenshots/numbex-dwim-change-label.png]]
+[[./screenshots/numbex-do-change-label.png]]
 
 ~numbex~ really tries its best to make sure you use unique labels.  If,
 in editing or creating a new example, you try to give it a label that
