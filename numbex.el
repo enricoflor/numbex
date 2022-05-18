@@ -663,13 +663,14 @@ portion of the buffer."
       (funcall #'numbex--jump-to-example (- count (* 2 count)) pos))))
 
 ;; When moving to an example item that is hidden (e.g. under a folded
-;; org-mode heading), a cons cell containing the buffer positions of
-;; the beginnin and the end of the item are added to this list.  This
-;; way, if you move further down or up in the buffer, the section that
-;; was opened just because you searched for an example item into it
-;; will be hidden again.  Every time a new movement "chain" is
-;; initiated this variable is reset to nil.
-(defvar-local numbex--previous-movement-invisible '())
+;; org-mode heading), the value of this variable is set to the buffer
+;; position corresponding to the end of the example item (i.e. the end
+;; of the matched string).  This way, if you move further down or up
+;; in the buffer, the section that was opened just because you
+;; searched for an example item into it will be hidden again.  Every
+;; time a new movement "chain" is initiated this variable is reset to
+;; nil.
+(defvar-local numbex--previous-movement-invisible nil)
 
 (defun numbex--jump-to-example (count pos)
   "Jump to n example items forward or backward, where n is COUNT.
@@ -699,19 +700,18 @@ example item at point."
                     (eq last-command 'numbex-backward-example))))
     ;; Don't bother making anything invisible if the previous command
     ;; was not a movement command.
-    (unless chain (setq numbex--previous-movement-invisible '()))
+    (unless chain (setq numbex--previous-movement-invisible nil))
     (when numbex--previous-movement-invisible
       ;; Go to the example you had jumped right before getting here
       ;; and close the subtree
-      (goto-char (cdar numbex--previous-movement-invisible))
+      (goto-char numbex--previous-movement-invisible)
       (outline-hide-subtree))
     (goto-char target-beginning)
     ;; Now that you are back to the actual target, if it is invisible
     ;; open up the subtree and add this location to the record so that
     ;; it will be made invisible again if you move further up or down.
     (when (outline-invisible-p target-end)
-      (push (cons target-beginning target-end)
-            numbex--previous-movement-invisible)
+      (setq numbex--previous-movement-invisible target-end)
       (outline-show-subtree))))
 
 (defun numbex-list ()
