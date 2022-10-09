@@ -345,7 +345,7 @@ Set 'numbex--hidden-labels' to nil.  If NO-COLORS is t, don't set
 font-lock-faces.
 
 Does not mark the buffer as modified."
-  (let ((buffer-was-modified (buffer-modified-p)))
+  (with-silent-modifications
     (save-excursion
       (goto-char (point-min))
       (while (re-search-forward numbex--item-re nil t)
@@ -362,15 +362,14 @@ Does not mark the buffer as modified."
           (when (or (equal type "ex") (equal type "rex") (not no-colors))
             (numbex--highlight lab type b (point))))))
     (numbex--toggle-font-lock-keyword)
-    (setq numbex--hidden-labels nil)
-    (unless buffer-was-modified (set-buffer-modified-p nil))))
+    (setq numbex--hidden-labels nil)))
 
 (defun numbex--add-numbering ()
   "Number items in the buffer as text properties.
 Set 'numbex-hidden-labels' to t.
 
 Does not mark the buffer as modified."
-  (let ((buffer-was-modified (buffer-modified-p)))
+  (with-silent-modifications
     (setq numbex--total-number-of-items 0)
     ;; First, let's number the examples.  If the buffer is narrowed
     ;; and 'numbex-numbering-reset' is t, we just need to number
@@ -437,8 +436,7 @@ Does not mark the buffer as modified."
                      (put-text-property b (point) 'display num)))))))
       (kill-buffer (current-buffer)))
     (numbex--toggle-font-lock-keyword t)
-    (setq numbex--hidden-labels t)
-    (unless buffer-was-modified (set-buffer-modified-p nil))))
+    (setq numbex--hidden-labels t)))
 
 (defun numbex-toggle-numbering-reset ()
   "Toggle value of 'numbex-numbering-reset' (buffer-local)."
@@ -785,7 +783,7 @@ be added to 'numbex-mode-hook', 'auto-save-hook' and
 
 Does not mark the buffer as modified."
   (interactive)
-  (let ((buffer-was-modified (buffer-modified-p)))
+  (with-silent-modifications
     ;; Check whether a file-local variable specifies a value for
     ;; 'numbex-delimiters'.  If it does, set that value.
     (when (assoc 'numbex-delimiters file-local-variables-alist)
@@ -801,8 +799,7 @@ Does not mark the buffer as modified."
         (unless hidden (numbex--remove-numbering))
         (unless no-echo (numbex--echo-duplicates))))
     ;; Update the value of numbex--buffer-hash
-    (setq numbex--buffer-hash (buffer-hash))
-    (unless buffer-was-modified (set-buffer-modified-p nil))))
+    (setq numbex--buffer-hash (buffer-hash))))
 
 (defvar numbex--idle-timer nil)
 
@@ -936,7 +933,7 @@ Finally, refontify accessible portion of the buffer."
       ;; activating numbex-mode
       (progn
         (unless numbex--idle-timer
-          (setq numbex--idle-timer (run-with-idle-timer 0.3 t #'numbex--timed)))
+          (setq numbex--idle-timer (run-with-idle-timer 0.1 t #'numbex--timed)))
         (numbex--count-and-ask)
         ;; For the first time they are created, let the hash tables
         ;; have the default size of 65
