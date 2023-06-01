@@ -1,11 +1,11 @@
 ;;; numbex.el --- Manage numbered examples -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2021, 2022 Enrico Flor
+;; Copyright (C) 2021, 2022, 2023 Enrico Flor
 
 ;; Author: Enrico Flor <enrico@eflor.net>
 ;; Maintainer: Enrico Flor <enrico@eflor.net>
 ;; URL: https://github.com/enricoflor/numbex
-;; Version: 0.5.0
+;; Version: 0.5.1
 ;; Package-Requires: ((emacs "26.1"))
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
@@ -251,7 +251,7 @@ taking into consideration the entire buffer."
           (let ((clean-label
                  (if (string-match "[[:space:]]"
                                    (match-string-no-properties 2)
-                                   nil t)
+                                   nil)
                      (replace-match
                       (replace-regexp-in-string "[[:space:]]" ""
                                                 (match-string-no-properties 2))
